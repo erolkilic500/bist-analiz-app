@@ -40,8 +40,8 @@ if check_auth():
         if st.button("🤖 Yapay Zeka ile Tam Otomatik Analiz Et"):
             with st.spinner("Yapay zeka grafiği inceliyor, mumları ve indikatörleri okuyor..."):
                 try:
-                    # Güncel model tanımı
-                    model = genai.GenerativeModel('gemini-3.8-flash')
+                    # En kararlı ve hızlı Vision modeli
+                    model = genai.GenerativeModel('gemini-1.5-flash')
                     
                     prompt = """
                     Bu bir TradingView Borsa İstanbul (BIST) hisse senedi teknik analiz grafik görüntüsüdür.
