@@ -1,6 +1,8 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
+from datetime import datetime
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="BIST Teknik Analiz Paneli", layout="centered")
@@ -29,7 +31,7 @@ else:
 
 if st.button("Teknik Analizi Hesapla"):
     try:
-        with st.spinner("Veriler indiriliyor ve analiz ediliyor..."):
+        with st.spinner("Veriler indiriliyor ve 8 indikatör hesaplanıyor..."):
             df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             
             if df.empty:
@@ -39,30 +41,76 @@ if st.button("Teknik Analizi Hesapla"):
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
                     
-                st.success("Saf Matematiksel Analiz Başarıyla Tamamlandı!")
-                
-                # Temel veri çekme
                 default_yf_price = float(df['Close'].iloc[-1])
-                volume = int(df['Volume'].iloc[-1])
-                avg_volume = int(df['Volume'].rolling(20).mean().iloc[-1])
                 
-                # Basit Stochastic hesaplaması (İndikatör kontrolü için)
+                # --- 8 İNDİKATÖR HESAPLAMA MANTIĞI ---
+                # 1. EMA 20/50
+                ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+                ema50 = df['Close'].ewm(span=50, adjust=False).mean()
+                ema_signal = "[ + ]" if ema20.iloc[-1] > ema50.iloc[-1] else "[ - ]"
+                
+                # 2. MACD
+                exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+                exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+                macd_line = exp1 - exp2
+                signal_line = macd_line.ewm(span=9, adjust=False).mean()
+                macd_signal = "[ + ]" if macd_line.iloc[-1] > signal_line.iloc[-1] else "[ - ]"
+                
+                # 3. TEMA
+                ema1 = df['Close'].ewm(span=9).mean()
+                ema2 = ema1.ewm(span=9).mean()
+                ema3 = ema2.ewm(span=9).mean()
+                tema = 3 * (ema1 - ema2) + ema3
+                tema_signal = "[ + ]" if df['Close'].iloc[-1] > tema.iloc[-1] else "[ - ]"
+                
+                # 4. Hacim
+                vol_current = df['Volume'].iloc[-1]
+                vol_ma = df['Volume'].rolling(20).mean().iloc[-1]
+                vol_signal = "[ + ]" if vol_current > vol_ma else "[ - ]"
+                
+                # 5. OBV
+                obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
+                obv_ma = obv.rolling(10).mean()
+                obv_signal = "[ + ]" if obv.iloc[-1] > obv_ma.iloc[-1] else "[ - ]"
+                
+                # 6. Stoch
                 low_14 = df['Low'].rolling(14).min()
                 high_14 = df['High'].rolling(14).max()
                 stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
                 stoch_d = stoch_k.rolling(3).mean()
+                stoch_signal = "[ + ]" if stoch_k.iloc[-1] > stoch_d.iloc[-1] else "[ - ]"
                 
-                cur_k = float(stoch_k.iloc[-1]) if not pd.isna(stoch_k.iloc[-1]) else 50.0
-                cur_d = float(stoch_d.iloc[-1]) if not pd.isna(stoch_d.iloc[-1]) else 50.0
+                # 7. ATR
+                high_low = df['High'] - df['Low']
+                high_close = np.abs(df['High'] - df['Close'].shift())
+                low_close = np.abs(df['Low'] - df['Close'].shift())
+                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                atr = tr.rolling(14).mean()
+                atr_signal = "[ + ]" if atr.iloc[-1] > atr.rolling(30).mean().iloc[-1] else "[ - ]"
                 
-                st.markdown(f"🔍 **Ham Veri Kontrolü** $\rightarrow$ Stoch %K: `{cur_k:.2f}` | Stoch %D: `{cur_d:.2f}` | Hacim: `{volume:,}` (Ort: `{avg_volume:,}`)")
+                # 8. Bollinger Bands (BB)
+                bb_mid = df['Close'].rolling(20).mean()
+                bb_std = df['Close'].rolling(20).std()
+                bb_signal = "[ + ]" if df['Close'].iloc[-1] > bb_mid.iloc[-1] else "[ - ]"
                 
+                # Skor Toplamı
+                signals = [macd_signal, ema_signal, obv_signal, atr_signal, tema_signal, vol_signal, stoch_signal, bb_signal]
+                score = signals.count("[ + ]")
+                
+                if score >= 6:
+                    sinyal_text = "GÜÇLÜ AL"
+                elif score >= 4:
+                    sinyal_text = "BEKLE"
+                else:
+                    sinyal_text = "SAT"
+
+                st.success("Saf Matematiksel Analiz Başarıyla Tamamlandı!")
+                
+                # --- Ziraat Trader Manuel Fiyat Girişi ---
                 st.markdown("---")
                 st.subheader("⚡ Ziraat Trader Canlı Fiyat Entegrasyonu")
-                
-                # Kullanıcının klavyeden rahatça yazabilmesi için text_input veya güvenli number_input
                 manual_price_str = st.text_input(
-                    "Ziraat Trader Anlık Fiyatını Girin (Değiştirmek istemiyorsanız değiştirmeyin):", 
+                    "Ziraat Trader Anlık Fiyatını Girin (İstediğiniz değeri doğrudan yazın):", 
                     value=str(default_yf_price)
                 )
                 
@@ -71,28 +119,47 @@ if st.button("Teknik Analizi Hesapla"):
                 except:
                     manual_price = default_yf_price
 
-                # Fiyat belirleme mantığı
                 if manual_price > 0:
                     last_price = manual_price
-                    st.success(f"✅ İşlemler aktif olarak girdiğiniz **{last_price:.2f} TL** canlı fiyata göre hesaplanıyor.")
+                    st.success(f"✅ Hesaplamalar girdiğiniz **{last_price:.2f} TL** canlı fiyata göre güncellendi.")
                 else:
                     last_price = default_yf_price
                     st.info(f"ℹ️ Yahoo Finance fiyatı kullanılıyor: {last_price:.2f} TL")
                 
-                # Stop-Loss (%1.5) ve Kar Al - TP (%5) Hesaplamaları
+                # Hesaplamalar
                 stop_loss = last_price * (1 - 0.015)
                 take_profit = last_price * (1 + 0.05)
+                min_val = float(df['Low'].min())
+                max_val = float(df['High'].max())
+                ort_val = float(df['Close'].mean())
                 
-                # Sonuçların ekrana yazdırılması
+                # --- İSTEDİĞİNİZ GÖRSEL FORMAT ---
                 st.markdown("---")
-                col1, col2, col3 = st.columns(3)
+                current_time = datetime.now().strftime("%H:%M")
+                
+                st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
+                st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
+                st.markdown("--------------------------------------------------")
+                
+                st.markdown(f"**Periyot** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Min (SL)** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Ort** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Max**")
+                short_per = period_choice[:6]
+                st.markdown(f"{short_per} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{min_val:.2f}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{ort_val:.2f}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{max_val:.2f}`")
+                st.markdown("--------------------------------------------------")
+                
+                col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Alış / Baz Fiyat", f"{last_price:.2f} TL")
+                    st.markdown(f"**MACD** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{macd_signal}`")
+                    st.markdown(f"**EMA20/50** &nbsp;&nbsp;&nbsp; `{ema_signal}`")
+                    st.markdown(f"**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{obv_signal}`")
+                    st.markdown(f"**ATR** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{atr_signal}`")
                 with col2:
-                    st.metric("Stop-Loss (%1.5)", f"{stop_loss:.2f} TL")
-                with col3:
-                    st.metric("TP / Kar Al (%5)", f"{take_profit:.2f} TL")
+                    st.markdown(f"**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{tema_signal}`")
+                    st.markdown(f"**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{vol_signal}`")
+                    st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{stoch_signal}`")
+                    st.markdown(f"**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{bb_signal}`")
                     
+                st.markdown("--------------------------------------------------")
+                st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `{score}/8`")
                 st.markdown("--------------------------------------------------")
                 
     except Exception as e:
