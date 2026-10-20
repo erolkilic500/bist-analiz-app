@@ -34,7 +34,6 @@ if check_auth():
     with col1:
         ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, EREGL, GARAN)", value="THYAO").upper().strip()
     with col2:
-        # İstediğiniz tüm periyot seçenekleri ve arka plan dönüştürme kuralları
         interval_options = {
             "1 Dakika": ("1m", "7d", "1min"),
             "2 Dakika": ("1m", "7d", "2min"),
@@ -49,7 +48,7 @@ if check_auth():
             "4 Saat": ("60m", "60d", "4h"),
             "Günlük (1D)": ("1d", "1y", None)
         }
-        selected_label = st.selectbox("Periyot Seçin", list(interval_options.keys()), index=7) # Varsayılan: 1 Saat
+        selected_label = st.selectbox("Periyot Seçin", list(interval_options.keys()), index=7)
         yf_interval, yf_period, resample_rule = interval_options[selected_label]
 
     if st.button("🚀 Teknik Analizi Hesapla"):
@@ -63,11 +62,9 @@ if check_auth():
                 if df.empty or len(df) < 15:
                     st.error("Yeterli veri bulunamadı. Lütfen geçerli bir BIST hisse kodu girin.")
                 else:
-                    # MultiIndex sütun yapılarını düzeltme
                     if isinstance(df.columns, pd.MultiIndex):
                         df.columns = df.columns.get_level_values(0)
 
-                    # Özel periyotlar için mum birleştirme (Resample)
                     if resample_rule:
                         df = df.resample(resample_rule).agg({
                             'Open': 'first',
@@ -78,7 +75,7 @@ if check_auth():
                         }).dropna()
 
                     if len(df) < 30:
-                        st.warning("Seçilen periyotta yeterli mum verisi oluşmadı. Lütfen başka bir periyot deneyin.")
+                        st.warning("Seçilen periyotta yeterli mum verisi oluşmadı.")
                     else:
                         close = df['Close']
                         high = df['High']
@@ -145,7 +142,7 @@ if check_auth():
                         skor = f"{positives}/8"
                         sinyal = "AL" if positives >= 5 else ("BEKLE" if positives >= 3 else "SAT")
 
-                        # Gerçek Piyasa Verileri (Borsa Ekranı ile Birebir)
+                        # Gerçek Piyasa Verileri
                         actual_low = float(low.iloc[-1])
                         actual_high = float(high.iloc[-1])
                         actual_close = float(close.iloc[-1])
@@ -173,6 +170,9 @@ if check_auth():
                         current_time_str = datetime.now().strftime("%H:%M")
 
                         st.success("✅ Saf Matematiksel Analiz Başarıyla Tamamlandı!")
+
+                        # Arkadaki ham sayısal değerleri görmek için bilgi kutusu
+                        st.info(f"🔍 **Ham Veri Kontrolü** -> Stoch %K: `{stoch_k.iloc[-1]:.2f}` | Stoch %D: `{stoch_d.iloc[-1]:.2f}` | Hacim: `{volume.iloc[-1]:,.0f}` (Ort: `{vol_sma.iloc[-1]:,.0f}`)")
 
                         # Sonuç Paneli
                         panel_output = f"""
