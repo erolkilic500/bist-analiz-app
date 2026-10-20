@@ -13,7 +13,7 @@ st.write("Doğrudan Borsa İstanbul verileriyle saf matematiksel ve objektif tek
 # Hisse Kodu ve Canlı Fiyat Girişi Yan Yana
 col_t, col_m = st.columns(2)
 with col_t:
-    ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA)", value="THYAO")
+    ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, TAVHL)", value="THYAO")
 with col_m:
     manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
 
@@ -39,12 +39,16 @@ if st.button("Teknik Analizi Hesapla"):
         with st.spinner("Veriler indiriliyor ve analiz ediliyor..."):
             df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             
+            # Boş veya NaN içeren satırları temizleme (NaN hatasını önler)
+            df = df.dropna(subset=['Close', 'High', 'Low', 'Volume'])
+            
             if df.empty:
                 st.error("Hisse verisi bulunamadı. Lütfen geçerli bir hisse kodu girin.")
             else:
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
                     
+                # Son geçerli fiyatı çekme
                 default_yf_price = float(df['Close'].iloc[-1])
                 
                 # Manuel fiyat kontrolü
@@ -120,14 +124,27 @@ if st.button("Teknik Analizi Hesapla"):
                 
                 current_time = datetime.now().strftime("%H:%M")
                 
-                # Görseldeki tablo formatı
+                # Görseldeki Tablo Formatı
                 st.markdown("---")
                 st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
                 st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
                 st.markdown("--------------------------------------------------")
-                st.markdown(f"**Periyot** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Min (SL)** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Ort** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Max**")
-                short_per = period_choice[:6]
-                st.markdown(f"{short_per} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{min_val:.2f}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{ort_val:.2f}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{max_val:.2f}`")
+                
+                # Min / Ort / Max Düzenli Tablosu
+                c1, c2, c3, c4 = st.columns(4)
+                with c1:
+                    st.write("**Periyot**")
+                    st.write(period_choice)
+                with c2:
+                    st.write("**Min (SL)**")
+                    st.write(f"`{min_val:.2f}`")
+                with c3:
+                    st.write("**Ort**")
+                    st.write(f"`{ort_val:.2f}`")
+                with c4:
+                    st.write("**Max**")
+                    st.write(f"`{max_val:.2f}`")
+                    
                 st.markdown("--------------------------------------------------")
                 
                 col1, col2 = st.columns(2)
