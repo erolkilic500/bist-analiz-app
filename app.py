@@ -22,7 +22,7 @@ def check_password():
 
 if check_password():
     st.title("📈 BIST Trading Görüntü Analiz Paneli")
-    st.caption("TradingView grafik fotoğrafını yükleyin, fiyatları girip stop-loss'lu analizinizi anında alın!")
+    st.caption("Grafiği yükleyin, fiyatları ve indikatör durumlarını seçip panelinizi anında oluşturun!")
 
     uploaded_file = st.file_uploader("Grafik Fotoğrafını Seçin (PNG, JPG)", type=["png", "jpg", "jpeg"])
 
@@ -30,12 +30,36 @@ if check_password():
         image = Image.open(uploaded_file)
         st.image(image, caption="Yüklenen Grafik", use_column_width=True)
 
-        # Kullanıcının Alış ve TP değerlerini manuel girebileceği alanlar
+        # 1. Fiyat ve Hedef Alanı
+        st.markdown("### 📊 Fiyat ve Hedef Seviyeleri")
         col1, col2 = st.columns(2)
         with col1:
-            manual_price = st.number_input("📊 Güncel / Alış Fiyatı", value=119.00, step=0.10)
+            manual_price = st.number_input("Alış Fiyatı", value=119.00, step=0.10)
         with col2:
-            manual_tp = st.number_input("🎯 Hedef Fiyat (TP)", value=122.50, step=0.10)
+            manual_tp = st.number_input("Hedef Fiyat (TP)", value=122.50, step=0.10)
+
+        # 2. İndikatör Durumlarını Esnek Seçme Alanı
+        st.markdown("### ⚙️ İndikatör Durumları (Grafiğe Göre Belirleyin)")
+        col3, col4, col5, col6 = st.columns(4)
+        
+        with col3:
+            macd_choice = st.selectbox("MACD", ["[ + ]", "[ - ]"], index=0)
+        with col4:
+            stoch_choice = st.selectbox("Stoch", ["[ + ]", "[ - ]"], index=0)
+        with col5:
+            hacim_choice = st.selectbox("Hacim", ["[ + ]", "[ - ]"], index=0)
+        with col6:
+            rsi_choice = st.selectbox("RSI", ["[ + ]", "[ - ]"], index=1)
+
+        col7, col8, col9, col10 = st.columns(4)
+        with col7:
+            ema_choice = st.selectbox("EMA20/50", ["[ + ]", "[ - ]"], index=1)
+        with col8:
+            obv_choice = st.selectbox("OBV", ["[ + ]", "[ - ]"], index=1)
+        with col9:
+            atr_choice = st.selectbox("ATR", ["[ + ]", "[ - ]"], index=1)
+        with col10:
+            bb_choice = st.selectbox("BB", ["[ + ]", "[ - ]"], index=1)
 
         if st.button("🚀 Paneli Oluştur"):
             last_price = float(manual_price)
@@ -44,24 +68,19 @@ if check_password():
             
             # %1.5 Stop-Loss Hesaplama
             stop_loss = round(last_price * (1 - 0.015), 2)
-            
-            # Tablo için Min / Max aralığı
             min_p = stop_loss
             max_p = round(last_price * 1.04, 2)
             avg_p = round((min_p + max_p) / 2, 2)
 
-            # Örnek Gösterge Durumları
-            macd_stat = "[ + ]"
-            stoch_stat = "[ + ]"
-            rsi_stat = "[ - ]"
-            hacim_stat = "[ + ]"
-
-            skor = "3/8"
-            sinyal = "AL"
+            # Seçilen indikatörlere göre skor ve sinyal hesaplama
+            indicators = [macd_choice, stoch_choice, hacim_choice, rsi_choice, ema_choice, obv_choice, atr_choice, bb_choice]
+            positives = indicators.count("[ + ]")
+            skor = f"{positives}/8"
+            sinyal = "AL" if positives >= 4 else ("BEKLE" if positives >= 2 else "SAT")
 
             st.success("✅ Analiz Paneli Oluşturuldu!")
 
-            # Sonuç Tablosu (%1.5 Stop-Loss eklenmiş hali)
+            # Sonuç Tablosu
             panel_output = f"""
  ⏱️ 18:05  |  Alış: {last_price:.2f}  |  TP: {tp1} / {tp2}
  🛑 Stop-Loss (%1.5): {stop_loss}
@@ -71,10 +90,10 @@ if check_password():
     5D    |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
     Gun   |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
  --------------------------------------------------
-  MACD     |  {macd_stat}   | TEMA  |  [ - ]
-  EMA20/50 |  [ - ]   | Hacim |  {hacim_stat}
-  OBV      |  [ - ]   | Stoch |  {stoch_stat}
-  ATR      |  [ - ]   | BB    |  [ - ]
+  MACD     |  {macd_choice}   | TEMA  |  [ - ]
+  EMA20/50 |  {ema_choice}   | Hacim |  {hacim_choice}
+  OBV      |  {obv_choice}   | Stoch |  {stoch_choice}
+  ATR      |  {atr_choice}   | BB    |  {bb_choice}
  --------------------------------------------------
   SİNYAL   |  {sinyal}    | Skor :  {skor}
             """
