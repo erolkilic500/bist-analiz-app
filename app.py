@@ -2,7 +2,7 @@ import streamlit as st
 from PIL import Image
 
 # Sayfa ayarları
-st.set_page_config(page_title="BIST Trading Görüntü Analiz Paneli", layout="centered")
+st.set_page_config(page_title="BIST Trading Analiz Paneli", layout="centered")
 
 # Parola Koruması
 def check_password():
@@ -20,34 +20,9 @@ def check_password():
         return False
     return True
 
-# Yüklenen görselin piksel ve renk analiziyle indikatörleri otomatik belirleme
-def analyze_chart_image(image):
-    img_rgb = image.convert('RGB')
-    pixels = list(img_rgb.getdata())
-    total_pixels = len(pixels)
-    
-    # Grafik üzerindeki yeşil ve kırmızı piksel yoğunluklarını hesapla
-    green_count = sum(1 for r, g, b in pixels if g > r + 20 and g > b + 20)
-    red_count = sum(1 for r, g, b in pixels if r > g + 20 and r > b + 20)
-    
-    green_ratio = green_count / total_pixels if total_pixels > 0 else 0
-    is_positive_trend = green_count >= red_count
-    
-    # Her indikatöre görselin durumuna göre dinamik karar ver
-    macd_stat = "[ + ]" if is_positive_trend else "[ - ]"
-    stoch_stat = "[ + ]" if green_ratio > 0.04 else "[ - ]"
-    rsi_stat = "[ + ]" if green_count > (red_count * 1.2) else "[ - ]"
-    hacim_stat = "[ + ]" if total_pixels > 30000 else "[ - ]"
-    ema_stat = "[ + ]" if is_positive_trend else "[ - ]"
-    obv_stat = "[ + ]" if green_ratio > 0.03 else "[ - ]"
-    atr_stat = "[ - ]" if is_positive_trend else "[ + ]"
-    bb_stat = "[ + ]" if is_positive_trend else "[ - ]"
-    
-    return macd_stat, stoch_stat, rsi_stat, hacim_stat, ema_stat, obv_stat, atr_stat, bb_stat
-
 if check_password():
-    st.title("📈 BIST Trading Görüntü Analiz Paneli")
-    st.caption("TradingView grafik fotoğrafını yükleyin, fiyatları girin; Gemini grafiği analiz edip indikatörleri otomatik belirlesin!")
+    st.title("📈 BIST Trading Akıllı Analiz Paneli")
+    st.caption("Grafik fotoğrafını yükleyin, fiyatları girin ve dilediğiniz indikatör durumunu esnekçe yönetin!")
 
     uploaded_file = st.file_uploader("Grafik Fotoğrafını Seçin (PNG, JPG)", type=["png", "jpg", "jpeg"])
 
@@ -55,49 +30,72 @@ if check_password():
         image = Image.open(uploaded_file)
         st.image(image, caption="Yüklenen Grafik", use_column_width=True)
 
-        # Kullanıcının Fiyat, TP ve Stop-Loss değerlerini girebileceği alanlar
-        col1, col2 = st.columns(2)
+        # 1. Fiyat ve Hedef Alanı
+        st.markdown("### 📊 Fiyat, TP ve Stop-Loss Seviyeleri")
+        col1, col2, col3 = st.columns(3)
         with col1:
-            manual_price = st.number_input("📊 Güncel / Alış Fiyatı", value=119.00, step=0.10)
+            manual_price = st.number_input("Alış Fiyatı", value=42.30, step=0.01)
         with col2:
-            manual_tp = st.number_input("🎯 Hedef Fiyat (TP)", value=122.50, step=0.10)
+            manual_tp = st.number_input("Hedef Fiyat (TP)", value=43.38, step=0.01)
+        with col3:
+            sl_orani = st.slider("Stop-Loss %", value=1.5, step=0.1)
 
-        if st.button("🚀 Paneli Otomatik Oluştur"):
+        # 2. İndikatör Durumları (Otomatik Taslak + Manuel Esneklik Kontrolü)
+        st.markdown("### ⚙️ İndikatör Durumları (İstediğinizi Tek Tuşla Değiştirin)")
+        
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            macd_choice = st.selectbox("MACD", ["[ + ]", "[ - ]"], index=0)
+        with c2:
+            stoch_choice = st.selectbox("Stoch RSI", ["[ + ]", "[ - ]"], index=0)
+        with c3:
+            rsi_choice = st.selectbox("RSI", ["[ + ]", "[ - ]"], index=0)
+        with c4:
+            hacim_choice = st.selectbox("Hacim", ["[ + ]", "[ - ]"], index=0)
+
+        c5, c6, c7, c8 = st.columns(4)
+        with c5:
+            ema_choice = st.selectbox("EMA20/50", ["[ + ]", "[ - ]"], index=0)
+        with c6:
+            obv_choice = st.selectbox("OBV", ["[ + ]", "[ - ]"], index=0)
+        with c7:
+            atr_choice = st.selectbox("ATR", ["[ + ]", "[ - ]"], index=1)
+        with c8:
+            bb_choice = st.selectbox("Bollinger (BB)", ["[ + ]", "[ - ]"], index=0)
+
+        if st.button("🚀 Paneli Oluştur"):
             last_price = float(manual_price)
             tp1 = float(manual_tp)
             tp2 = round(tp1 * 1.015, 2)
             
-            # %1.5 Stop-Loss Hesaplama
-            stop_loss = round(last_price * (1 - 0.015), 2)
+            # Stop-Loss Hesaplama
+            stop_loss = round(last_price * (1 - (sl_orani / 100)), 2)
             min_p = stop_loss
-            max_p = round(last_price * 1.04, 2)
+            max_p = round(tp1 * 1.01, 2)
             avg_p = round((min_p + max_p) / 2, 2)
 
-            # Görseli analiz ederek indikatörleri otomatik belirle
-            macd_stat, stoch_stat, rsi_stat, hacim_stat, ema_stat, obv_stat, atr_stat, bb_stat = analyze_chart_image(image)
-
             # Skor ve Sinyal Hesaplama
-            indicators = [macd_stat, stoch_stat, rsi_stat, hacim_stat, ema_stat, obv_stat, atr_stat, bb_stat]
+            indicators = [macd_choice, stoch_choice, rsi_choice, hacim_choice, ema_choice, obv_choice, atr_choice, bb_choice]
             positives = indicators.count("[ + ]")
             skor = f"{positives}/8"
-            sinyal = "AL" if positives >= 4 else ("BEKLE" if positives >= 2 else "SAT")
+            sinyal = "AL" if positives >= 5 else ("BEKLE" if positives >= 3 else "SAT")
 
-            st.success("✅ Grafik Analiz Edildi ve Panel Oluşturuldu!")
+            st.success("✅ Analiz Paneli Başarıyla Oluşturuldu!")
 
             # Sonuç Tablosu
             panel_output = f"""
  ⏱️ 18:05  |  Alış: {last_price:.2f}  |  TP: {tp1} / {tp2}
- 🛑 Stop-Loss (%1.5): {stop_loss}
+ 🛑 Stop-Loss (%{sl_orani}): {stop_loss}
  --------------------------------------------------
   Periyot |   Min (SL) |   Ort    |   Max   
     1D    |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
     5D    |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
     Gun   |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
  --------------------------------------------------
-  MACD     |  {macd_stat}   | TEMA  |  {ema_stat}
-  EMA20/50 |  {ema_stat}   | Hacim |  {hacim_stat}
-  OBV      |  {obv_stat}   | Stoch |  {stoch_stat}
-  ATR      |  {atr_stat}   | BB    |  {bb_stat}
+  MACD     |  {macd_choice}   | TEMA  |  {ema_choice}
+  EMA20/50 |  {ema_choice}   | Hacim |  {hacim_choice}
+  OBV      |  {obv_choice}   | Stoch |  {stoch_choice}
+  ATR      |  {atr_choice}   | BB    |  {bb_choice}
  --------------------------------------------------
   SİNYAL   |  {sinyal}    | Skor :  {skor}
             """
