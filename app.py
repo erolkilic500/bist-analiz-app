@@ -8,10 +8,15 @@ from datetime import datetime
 st.set_page_config(page_title="BIST Teknik Analiz Paneli", layout="centered")
 
 st.title("📈 BIST Otomatik 8 İndikatör Skorlama Paneli")
-st.write("Google AI bağımlılığı olmadan, doğrudan Borsa İstanbul verileriyle saf matematiksel ve objektif teknik analiz!")
+st.write("Doğrudan Borsa İstanbul verileriyle saf matematiksel ve objektif teknik analiz!")
 
-# Kullanıcı Girişleri
-ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, EREGL, GARAN)", value="THYAO")
+# Hisse Kodu ve Canlı Fiyat Girişi Yan Yana
+col_t, col_m = st.columns(2)
+with col_t:
+    ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA)", value="THYAO")
+with col_m:
+    manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
+
 clean_ticker = ticker_input.strip().upper()
 if not clean_ticker.endswith(".IS"):
     clean_ticker += ".IS"
@@ -31,56 +36,62 @@ else:
 
 if st.button("Teknik Analizi Hesapla"):
     try:
-        with st.spinner("Veriler indiriliyor ve 8 indikatör hesaplanıyor..."):
+        with st.spinner("Veriler indiriliyor ve analiz ediliyor..."):
             df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             
             if df.empty:
                 st.error("Hisse verisi bulunamadı. Lütfen geçerli bir hisse kodu girin.")
             else:
-                # Çok katmanlı sütun başlığı sorununu önleme
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
                     
                 default_yf_price = float(df['Close'].iloc[-1])
                 
+                # Manuel fiyat kontrolü
+                try:
+                    if manual_price_str.strip() != "":
+                        manual_price = float(manual_price_str.replace(",", "."))
+                    else:
+                        manual_price = 0.0
+                except:
+                    manual_price = 0.0
+
+                if manual_price > 0:
+                    last_price = manual_price
+                else:
+                    last_price = default_yf_price
+                
                 # --- 8 İNDİKATÖR HESAPLAMA MANTIĞI ---
-                # 1. EMA 20/50
                 ema20 = df['Close'].ewm(span=20, adjust=False).mean()
                 ema50 = df['Close'].ewm(span=50, adjust=False).mean()
                 ema_signal = "[ + ]" if ema20.iloc[-1] > ema50.iloc[-1] else "[ - ]"
                 
-                # 2. MACD
                 exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                 exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                 macd_line = exp1 - exp2
                 signal_line = macd_line.ewm(span=9, adjust=False).mean()
                 macd_signal = "[ + ]" if macd_line.iloc[-1] > signal_line.iloc[-1] else "[ - ]"
                 
-                # 3. TEMA
                 ema1 = df['Close'].ewm(span=9).mean()
                 ema2 = ema1.ewm(span=9).mean()
                 ema3 = ema2.ewm(span=9).mean()
                 tema = 3 * (ema1 - ema2) + ema3
                 tema_signal = "[ + ]" if df['Close'].iloc[-1] > tema.iloc[-1] else "[ - ]"
                 
-                # 4. Hacim
                 vol_current = df['Volume'].iloc[-1]
                 vol_ma = df['Volume'].rolling(20).mean().iloc[-1]
                 vol_signal = "[ + ]" if vol_current > vol_ma else "[ - ]"
                 
-                # 5. OBV
                 obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
                 obv_ma = obv.rolling(10).mean()
                 obv_signal = "[ + ]" if obv.iloc[-1] > obv_ma.iloc[-1] else "[ - ]"
                 
-                # 6. Stoch
                 low_14 = df['Low'].rolling(14).min()
                 high_14 = df['High'].rolling(14).max()
                 stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
                 stoch_d = stoch_k.rolling(3).mean()
                 stoch_signal = "[ + ]" if stoch_k.iloc[-1] > stoch_d.iloc[-1] else "[ - ]"
                 
-                # 7. ATR
                 high_low = df['High'] - df['Low']
                 high_close = np.abs(df['High'] - df['Close'].shift())
                 low_close = np.abs(df['Low'] - df['Close'].shift())
@@ -88,12 +99,9 @@ if st.button("Teknik Analizi Hesapla"):
                 atr = tr.rolling(14).mean()
                 atr_signal = "[ + ]" if atr.iloc[-1] > atr.rolling(30).mean().iloc[-1] else "[ - ]"
                 
-                # 8. Bollinger Bands (BB)
                 bb_mid = df['Close'].rolling(20).mean()
-                bb_std = df['Close'].rolling(20).std()
                 bb_signal = "[ + ]" if df['Close'].iloc[-1] > bb_mid.iloc[-1] else "[ - ]"
                 
-                # Skor Toplamı
                 signals = [macd_signal, ema_signal, obv_signal, atr_signal, tema_signal, vol_signal, stoch_signal, bb_signal]
                 score = signals.count("[ + ]")
                 
@@ -104,43 +112,19 @@ if st.button("Teknik Analizi Hesapla"):
                 else:
                     sinyal_text = "SAT"
 
-                st.success("Saf Matematiksel Analiz Başarıyla Tamamlandı!")
-                
-                # --- Ziraat Trader Manuel Fiyat Girişi ---
-                st.markdown("---")
-                st.subheader("⚡ Ziraat Trader Canlı Fiyat Entegrasyonu")
-                manual_price_str = st.text_input(
-                    "Ziraat Trader Anlık Fiyatını Girin (İstediğiniz değeri doğrudan yazın):", 
-                    value=str(default_yf_price)
-                )
-                
-                try:
-                    manual_price = float(manual_price_str.replace(",", "."))
-                except:
-                    manual_price = default_yf_price
-
-                if manual_price > 0:
-                    last_price = manual_price
-                    st.success(f"✅ Hesaplamalar girdiğiniz **{last_price:.2f} TL** canlı fiyata göre güncellendi.")
-                else:
-                    last_price = default_yf_price
-                    st.info(f"ℹ️ Yahoo Finance fiyatı kullanılıyor: {last_price:.2f} TL")
-                
-                # Hesaplamalar
                 stop_loss = last_price * (1 - 0.015)
                 take_profit = last_price * (1 + 0.05)
                 min_val = float(df['Low'].min())
                 max_val = float(df['High'].max())
                 ort_val = float(df['Close'].mean())
                 
-                # --- İSTEDİĞİNİZ GÖRSEL FORMAT ---
-                st.markdown("---")
                 current_time = datetime.now().strftime("%H:%M")
                 
+                # Görseldeki tablo formatı
+                st.markdown("---")
                 st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
                 st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
                 st.markdown("--------------------------------------------------")
-                
                 st.markdown(f"**Periyot** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Min (SL)** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Ort** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Max**")
                 short_per = period_choice[:6]
                 st.markdown(f"{short_per} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{min_val:.2f}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{ort_val:.2f}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{max_val:.2f}`")
