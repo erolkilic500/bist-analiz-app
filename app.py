@@ -22,7 +22,7 @@ def check_password():
 
 if check_password():
     st.title("📈 BIST Trading Görüntü Analiz Paneli")
-    st.caption("TradingView grafik fotoğrafını yükleyin, fiyatları manuel girip analizinizi anında alın!")
+    st.caption("TradingView grafik fotoğrafını yükleyin, fiyatları girip stop-loss'lu analizinizi anında alın!")
 
     uploaded_file = st.file_uploader("Grafik Fotoğrafını Seçin (PNG, JPG)", type=["png", "jpg", "jpeg"])
 
@@ -40,10 +40,13 @@ if check_password():
         if st.button("🚀 Paneli Oluştur"):
             last_price = float(manual_price)
             tp1 = float(manual_tp)
-            tp2 = round(tp1 * 1.015, 2)  # İkinci hedef otomatik kademelendirilir
+            tp2 = round(tp1 * 1.015, 2)
             
-            # Dinamik Hesaplama Mantığı
-            min_p = round(last_price * 0.98, 2)
+            # %1.5 Stop-Loss Hesaplama
+            stop_loss = round(last_price * (1 - 0.015), 2)
+            
+            # Tablo için Min / Max aralığı
+            min_p = stop_loss
             max_p = round(last_price * 1.04, 2)
             avg_p = round((min_p + max_p) / 2, 2)
 
@@ -58,11 +61,12 @@ if check_password():
 
             st.success("✅ Analiz Paneli Oluşturuldu!")
 
-            # Sonuç Tablosu
+            # Sonuç Tablosu (%1.5 Stop-Loss eklenmiş hali)
             panel_output = f"""
  ⏱️ 18:05  |  Alış: {last_price:.2f}  |  TP: {tp1} / {tp2}
+ 🛑 Stop-Loss (%1.5): {stop_loss}
  --------------------------------------------------
-  Periyot |   Min    |   Ort    |   Max   
+  Periyot |   Min (SL) |   Ort    |   Max   
     1D    |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
     5D    |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
     Gun   |  {min_p:.2f}  |  {avg_p:.2f}  |  {max_p:.2f}
