@@ -10,7 +10,6 @@ st.write("Google AI bağımlılığı olmadan, doğrudan Borsa İstanbul veriler
 
 # Kullanıcı Girişleri
 ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, EREGL, GARAN)", value="THYAO")
-# Büyük harfe çevir ve BIST uzantısını ekle
 clean_ticker = ticker_input.strip().upper()
 if not clean_ticker.endswith(".IS"):
     clean_ticker += ".IS"
@@ -47,19 +46,31 @@ if st.button("Teknik Analizi Hesapla"):
                 volume = int(df['Volume'].iloc[-1])
                 avg_volume = int(df['Volume'].rolling(20).mean().iloc[-1])
                 
-                st.markdown(f"**Ham Veri Kontrolü** $\rightarrow$ Son Kapanış: {default_yf_price:.2f} | Hacim: {volume:,} (Ort: {avg_volume:,})")
+                # Basit Stochastic hesaplaması (İndikatör kontrolü için)
+                low_14 = df['Low'].rolling(14).min()
+                high_14 = df['High'].rolling(14).max()
+                stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
+                stoch_d = stoch_k.rolling(3).mean()
+                
+                cur_k = float(stoch_k.iloc[-1]) if not pd.isna(stoch_k.iloc[-1]) else 50.0
+                cur_d = float(stoch_d.iloc[-1]) if not pd.isna(stoch_d.iloc[-1]) else 50.0
+                
+                st.markdown(f"🔍 **Ham Veri Kontrolü** $\rightarrow$ Stoch %K: `{cur_k:.2f}` | Stoch %D: `{cur_d:.2f}` | Hacim: `{volume:,}` (Ort: `{avg_volume:,}`)")
                 
                 st.markdown("---")
                 st.subheader("⚡ Ziraat Trader Canlı Fiyat Entegrasyonu")
                 
-                # Ziraat Trader / Anlık Manuel Fiyat Girişi
-                manual_price = st.number_input(
-                    "Ziraat Trader Anlık Fiyatını Girin (Değiştirmek istemiyorsanız aynı bırakın veya 0 yapın):", 
-                    value=default_yf_price, 
-                    step=0.10, 
-                    format="%.2f"
+                # Kullanıcının klavyeden rahatça yazabilmesi için text_input veya güvenli number_input
+                manual_price_str = st.text_input(
+                    "Ziraat Trader Anlık Fiyatını Girin (Değiştirmek istemiyorsanız değiştirmeyin):", 
+                    value=str(default_yf_price)
                 )
                 
+                try:
+                    manual_price = float(manual_price_str.replace(",", "."))
+                except:
+                    manual_price = default_yf_price
+
                 # Fiyat belirleme mantığı
                 if manual_price > 0:
                     last_price = manual_price
