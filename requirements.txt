@@ -1,4 +1,4 @@
 streamlit
-Pillow
-google-generativeai
-tenacity
+yfinance
+pandas
+numpy
