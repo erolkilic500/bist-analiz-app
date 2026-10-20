@@ -149,9 +149,8 @@ if check_auth():
                         actual_avg = round((actual_high + actual_low) / 2, 2)
 
                         last_price = actual_close
-                        tp1 = round(last_price * 1.025, 2)
-                        tp2 = round(last_price * 1.04, 2)
-                        stop_loss = round(last_price * 0.985, 2)
+                        tp = round(last_price * 1.05, 2)  # Tek hedef: %5 Kar Al
+                        stop_loss = round(last_price * 0.985, 2) # %1.5 Stop-Loss
                         
                         min_p = actual_low
                         max_p = actual_high
@@ -171,12 +170,12 @@ if check_auth():
 
                         st.success("✅ Saf Matematiksel Analiz Başarıyla Tamamlandı!")
 
-                        # Arkadaki ham sayısal değerleri görmek için bilgi kutusu
+                        # Ham Veri Bilgisi
                         st.info(f"🔍 **Ham Veri Kontrolü** -> Stoch %K: `{stoch_k.iloc[-1]:.2f}` | Stoch %D: `{stoch_d.iloc[-1]:.2f}` | Hacim: `{volume.iloc[-1]:,.0f}` (Ort: `{vol_sma.iloc[-1]:,.0f}`)")
 
-                        # Sonuç Paneli
+                        # Sonuç Paneli (%5 Tek TP ile güncellendi)
                         panel_output = f"""
- ⏱️ {current_time_str}  |  Alış: {last_price:.2f}  |  TP: {tp1} / {tp2}
+ ⏱️ {current_time_str}  |  Alış: {last_price:.2f}  |  TP (%5): {tp}
  🛑 Stop-Loss (%1.5): {stop_loss}
  --------------------------------------------------
   Periyot |   Min (SL) |   Ort    |   Max   
