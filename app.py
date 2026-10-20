@@ -13,7 +13,7 @@ st.write("Doğrudan Borsa İstanbul verileriyle saf matematiksel ve objektif tek
 # Hisse Kodu ve Canlı Fiyat Girişi Yan Yana
 col_t, col_m = st.columns(2)
 with col_t:
-    ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, TAVHL)", value="THYAO")
+    ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, BIMAS)", value="BIMAS")
 with col_m:
     manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
 
@@ -122,9 +122,11 @@ if st.button("Teknik Analizi Hesapla"):
 
                     stop_loss = last_price * (1 - 0.015)
                     take_profit = last_price * (1 + 0.05)
-                    min_val = float(df['Low'].min())
-                    max_val = float(df['High'].max())
-                    ort_val = float(df['Close'].mean())
+                    
+                    # --- DÜZELTME BURADA: Son seansın (bugünkü mumun) min, max ve ortalama değerleri ---
+                    min_val = float(df['Low'].iloc[-1])
+                    max_val = float(df['High'].iloc[-1])
+                    ort_val = float((df['High'].iloc[-1] + df['Low'].iloc[-1] + df['Close'].iloc[-1]) / 3)
                     
                     current_time = datetime.now().strftime("%H:%M")
                     
