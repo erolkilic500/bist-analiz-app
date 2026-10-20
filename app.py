@@ -22,7 +22,7 @@ def check_password():
 
 if check_password():
     st.title("📈 BIST Trading Görüntü Analiz Paneli")
-    st.caption("TradingView grafik fotoğrafını yükleyin, anlık fiyatı girin, analiz paneli saniyesinde karşınıza gelsin!")
+    st.caption("TradingView grafik fotoğrafını yükleyin, fiyatları manuel girip analizinizi anında alın!")
 
     uploaded_file = st.file_uploader("Grafik Fotoğrafını Seçin (PNG, JPG)", type=["png", "jpg", "jpeg"])
 
@@ -30,15 +30,19 @@ if check_password():
         image = Image.open(uploaded_file)
         st.image(image, caption="Yüklenen Grafik", use_column_width=True)
 
-        # Kullanıcının anlık fiyatı pratikçe girebilmesi için alan
-        manual_price = st.number_input("📊 Hissenin Güncel / Son Fiyatını Girin (Örn: 119.00 veya 374.33)", value=119.00, step=0.10)
+        # Kullanıcının Alış ve TP değerlerini manuel girebileceği alanlar
+        col1, col2 = st.columns(2)
+        with col1:
+            manual_price = st.number_input("📊 Güncel / Alış Fiyatı", value=119.00, step=0.10)
+        with col2:
+            manual_tp = st.number_input("🎯 Hedef Fiyat (TP)", value=122.50, step=0.10)
 
         if st.button("🚀 Paneli Oluştur"):
             last_price = float(manual_price)
+            tp1 = float(manual_tp)
+            tp2 = round(tp1 * 1.015, 2)  # İkinci hedef otomatik kademelendirilir
             
             # Dinamik Hesaplama Mantığı
-            tp1 = round(last_price * 1.015, 2)
-            tp2 = round(last_price * 1.03, 2)
             min_p = round(last_price * 0.98, 2)
             max_p = round(last_price * 1.04, 2)
             avg_p = round((min_p + max_p) / 2, 2)
