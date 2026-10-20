@@ -56,14 +56,19 @@ if check_auth():
         
         with st.spinner(f"{symbol} için veriler çekiliyor ve 8 indikatör hesaplanıyor..."):
             try:
-                # Veri Çekme (Yahoo Finance)
+                # 1. İndikatörler için seçilen periyotta veri çekme
                 df = yf.download(symbol, period=yf_period, interval=yf_interval, progress=False)
                 
-                if df.empty or len(df) < 15:
+                # 2. Borsa ekranıyla birebir uyuşması için Günlük (1D) seans verilerini ayrıca çekme
+                df_daily = yf.download(symbol, period="5d", interval="1d", progress=False)
+                
+                if df.empty or len(df) < 15 or df_daily.empty:
                     st.error("Yeterli veri bulunamadı. Lütfen geçerli bir BIST hisse kodu girin.")
                 else:
                     if isinstance(df.columns, pd.MultiIndex):
                         df.columns = df.columns.get_level_values(0)
+                    if isinstance(df_daily.columns, pd.MultiIndex):
+                        df_daily.columns = df_daily.columns.get_level_values(0)
 
                     if resample_rule:
                         df = df.resample(resample_rule).agg({
@@ -142,19 +147,15 @@ if check_auth():
                         skor = f"{positives}/8"
                         sinyal = "AL" if positives >= 5 else ("BEKLE" if positives >= 3 else "SAT")
 
-                        # Gerçek Piyasa Verileri
-                        actual_low = float(low.iloc[-1])
-                        actual_high = float(high.iloc[-1])
-                        actual_close = float(close.iloc[-1])
-                        actual_avg = round((actual_high + actual_low) / 2, 2)
+                        # Günlük Borsa Seans Verileri (Birebir Eşleşme İçin)
+                        min_p = float(df_daily['Low'].iloc[-1])
+                        max_p = float(df_daily['High'].iloc[-1])
+                        # Ağırlıklı Ortalama yaklaşımı (High + Low + Close / 3)
+                        avg_p = round((df_daily['High'].iloc[-1] + df_daily['Low'].iloc[-1] + df_daily['Close'].iloc[-1]) / 3, 2)
 
-                        last_price = actual_close
-                        tp = round(last_price * 1.05, 2)  # Tek hedef: %5 Kar Al
+                        last_price = float(close.iloc[-1])
+                        tp = round(last_price * 1.05, 2)  # %5 Kar Al Hedefi
                         stop_loss = round(last_price * 0.985, 2) # %1.5 Stop-Loss
-                        
-                        min_p = actual_low
-                        max_p = actual_high
-                        avg_p = actual_avg
 
                         # Metinsel Durumlar
                         macd_stat = "[ + ]" if cond_macd else "[ - ]"
@@ -173,7 +174,7 @@ if check_auth():
                         # Ham Veri Bilgisi
                         st.info(f"🔍 **Ham Veri Kontrolü** -> Stoch %K: `{stoch_k.iloc[-1]:.2f}` | Stoch %D: `{stoch_d.iloc[-1]:.2f}` | Hacim: `{volume.iloc[-1]:,.0f}` (Ort: `{vol_sma.iloc[-1]:,.0f}`)")
 
-                        # Sonuç Paneli (%5 Tek TP ile güncellendi)
+                        # Sonuç Paneli
                         panel_output = f"""
  ⏱️ {current_time_str}  |  Alış: {last_price:.2f}  |  TP (%5): {tp}
  🛑 Stop-Loss (%1.5): {stop_loss}
