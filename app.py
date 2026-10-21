@@ -16,6 +16,7 @@ with col_t:
     ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, BIMAS)", value="BIMAS")
 with col_m:
     manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
+    st.markdown("<p style='font-size:11px; color:#ff4b4b; margin-top:-10px; margin-bottom:0px;'><b>⚠️ DİKKAT:</b> Canlı fiyatı doğru giriniz, aksi halde sonuçlar yanlış çıkar!</p>", unsafe_allow_html=True)
 
 clean_ticker = ticker_input.strip().upper()
 if not clean_ticker.endswith(".IS"):
