@@ -15,8 +15,8 @@ col_t, col_m = st.columns(2)
 with col_t:
     ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, BIMAS)", value="BIMAS")
 with col_m:
-    manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
-    st.markdown("<p style='font-size:11px; color:#ff4b4b; margin-top:-10px; margin-bottom:0px;'><b>⚠️ DİKKAT:</b> Canlı fiyatı doğru giriniz, aksi halde sonuçlar yanlış çıkar!</p>", unsafe_allow_html=True)
+    manual_price_str = st.text_input("Ziraat Canlı Fiyat", value="")
+    st.markdown("<p style='font-size:12px; color:#ff4b4b; font-weight:bold; margin-top:-10px; margin-bottom:0px;'>DOĞRU SONUÇ ALMAK İSTİYORSANIZ ZİRAAT/MİDAS VB ARACI KURUMUNDAKİ HİSSENİN ANLIK FİYATINI YAZINIZ</p>", unsafe_allow_html=True)
 
 clean_ticker = ticker_input.strip().upper()
 if not clean_ticker.endswith(".IS"):
@@ -35,7 +35,7 @@ period_choice = st.selectbox("Periyot Seçin", period_options, index=3) # Varsay
 interval_map = {
     "1 Dakika": ("1m", "7d"),
     "2 Dakika": ("2m", "1mo"),
-    "3 Dakika": ("2m", "1mo"),   # YF native 3m desteklemediğinde en yakın 2m kullanılır
+    "3 Dakika": ("2m", "1mo"),
     "5 Dakika": ("5m", "1mo"),
     "10 Dakika": ("5m", "1mo"),
     "15 Dakika": ("15m", "1mo"),
