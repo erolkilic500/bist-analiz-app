@@ -11,11 +11,14 @@ st.set_page_config(page_title="BIST 5dk Scalping & Tarama Paneli", layout="wide"
 # ==============================================================================
 # 🔒 KULLANICI GİRİŞİ VE ERİŞİM YÖNETİMİ
 # ==============================================================================
-# İstediğiniz kullanıcı adını ve şifreyi bu sözlüğe (dict) ekleyebilir veya silebilirsiniz.
+# Arkadaşlarınızı buraya ekleyebilir, şifrelerini değiştirebilir veya 
+# silmek istediğiniz kişinin satırını tamamen kaldırarak erişimini kesebilirsiniz.
 USERS = {
     "bist500erol": "2152039",  # Yönetici (Siz)
-    "arkadas1": "bist123",    # İstediğiniz gibi değiştirebilir veya silebilirsiniz
-    "arkadas2": "bist456"     # İstediğiniz gibi değiştirebilir veya silebilirsiniz
+    "arkadas1": "bist123",    # Arkadaşınızın kullanıcı adı ve şifresi
+    "arkadas2": "bist456"     # Arkadaşınızın kullanıcı adı ve şifresi
+    # Yeni arkadaş eklemek için alt alta şu şekilde yazabilirsiniz:
+    # "ahmet": "123456",
 }
 
 if "authenticated" not in st.session_state:
