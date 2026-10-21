@@ -15,8 +15,8 @@ st.set_page_config(page_title="BIST 5dk Scalping & Tarama Paneli", layout="wide"
 # silmek istediğiniz kişinin satırını tamamen kaldırarak erişimini kesebilirsiniz.
 USERS = {
     "bist500erol": "2152039",  # Yönetici (Siz)
-    "arkadas1": "bist123",    # Arkadaşınızın kullanıcı adı ve şifresi
-    "arkadas2": "bist456"     # Arkadaşınızın kullanıcı adı ve şifresi
+    "hatice": "bist450",    # Arkadaşınızın kullanıcı adı ve şifresi
+    "ismail": "bist4242"     # Arkadaşınızın kullanıcı adı ve şifresi
     # Yeni arkadaş eklemek için alt alta şu şekilde yazabilirsiniz:
     # "ahmet": "123456",
 }
