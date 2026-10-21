@@ -74,8 +74,11 @@ if st.button("Teknik Analizi Hesapla"):
                     st.error("Seçilen periyot için yeterli teknik veri hesaplanamadı.")
                 else:
                     default_yf_price = float(df['Close'].iloc[-1])
-                    period_min = float(df['Low'].min())
-                    period_max = float(df['High'].max())
+                    
+                    # DÜZELTME: Min, Max ve Ort değerleri tüm dönemin değil, son mumun (veya son 20 barın scalping aralığının) sınırları olarak alınıyor
+                    recent_df = df.tail(20) # Son 20 bar (scalping penceresi)
+                    period_min = float(recent_df['Low'].min())
+                    period_max = float(recent_df['High'].max())
                     
                     manual_price = 0.0
                     try:
@@ -85,8 +88,8 @@ if st.button("Teknik Analizi Hesapla"):
                         manual_price = 0.0
 
                     if manual_price > 0:
-                        if manual_price < (period_min * 0.5) or manual_price > (period_max * 1.5):
-                            st.warning(f"⚠️ Girilen fiyat hissenin seviyesinden çok farklı! Otomatik borsa verisi ({default_yf_price:.2f} TL) kullanıldı.")
+                        if manual_price < (period_min * 0.7) or manual_price > (period_max * 1.3):
+                            st.warning(f"⚠️ Girilen fiyat hissenin güncel aralığından farklı! Otomatik borsa verisi ({default_yf_price:.2f} TL) kullanıldı.")
                             last_price = default_yf_price
                         else:
                             last_price = manual_price
@@ -95,7 +98,6 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     # --- 10 İNDİKATÖR, BİREYSEL PUAN VE DURUM AÇIKLAMALARI ---
                     
-                    # Yardımcı durum etiketi fonksiyonu
                     def get_status_label(score):
                         if score >= 9:
                             return "🟢 **[Çok İyi]**"
@@ -193,7 +195,7 @@ if st.button("Teknik Analizi Hesapla"):
                         obv_signal = f"[ - ] (OBV < Ort)"
                         obv_score = 4
                     
-                    # 7. EMA 20/50 (Golden Cross / Death Cross)
+                    # 7. EMA 20/50
                     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
                     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
                     val_ema20 = float(ema20.iloc[-1])
@@ -248,7 +250,6 @@ if st.button("Teknik Analizi Hesapla"):
                         atr_signal = f"[ - ] (ATR: {val_atr:.2f} Durgun)"
                         atr_score = 5
                     
-                    # Arka Planda Genel Skor
                     signals = [rsi_signal, st_signal, macd_signal, ema_signal, stoch_signal, vol_signal, obv_signal, tema_signal, bb_signal, atr_signal]
                     score = sum(1 for s in signals if "[ + ]" in s)
                     
@@ -264,7 +265,7 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     min_val = period_min
                     max_val = period_max
-                    ort_val = float(df['Close'].mean())
+                    ort_val = float(recent_df['Close'].mean())
                     
                     current_time = datetime.now().strftime("%H:%M")
                     
@@ -289,7 +290,6 @@ if st.button("Teknik Analizi Hesapla"):
                         
                     st.markdown("--------------------------------------------------")
                     
-                    # --- İNDİKATÖR, PUAN VE DURUM AÇIKLAMASI EKRANI ---
                     st.markdown(f"**RSI:** `{rsi_signal}` ➔ **{rsi_score}/10** &nbsp; {get_status_label(rsi_score)}")
                     st.markdown(f"**SuperTrend:** `{st_signal}` ➔ **{st_score}/10** &nbsp; {get_status_label(st_score)}")
                     st.markdown(f"**Stochastic:** `{stoch_signal}` ➔ **{stoch_score}/10** &nbsp; {get_status_label(stoch_score)}")
@@ -304,7 +304,6 @@ if st.button("Teknik Analizi Hesapla"):
                     st.markdown("--------------------------------------------------")
                     st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Genel Durum :** `" + str(score) + "/10 Olumlu`")
                     st.markdown("--------------------------------------------------")
-                    st.caption("⭐ **Not:** [Çok İyi], [Uygun], [Nötr] ve [Riskli] durum etiketleri anlık hisse verisine ve indikatör puanına göre otomatik atanmaktadır.")
                     
                     # --- GRAFİK PANELİ ---
                     st.subheader(f"📊 {clean_ticker} 5 Dakikalık İndikatörlü Fiyat ve Osilatör Grafikleri")
@@ -326,20 +325,6 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     fig.update_layout(template="plotly_dark", height=750, margin=dict(l=10, r=10, t=30, b=10))
                     st.plotly_chart(fig, use_container_width=True)
-                    
-                    with st.expander("📚 İndikatör Değerleri ve Anlamları (Eğitim Rehberi)"):
-                        st.markdown("""
-                        - **RSI (Relative Strength Index):** Momentum ölçer. 30 altı dip/fırsat, 70 üstü aşırı alımdır.
-                        - **SuperTrend:** Ana trend yönünü net olarak belirleyen güvenli takip sistemidir.
-                        - **Stochastic:** Dip ve tepe zamanlamaları için en duyarlı osilatördür.
-                        - **MACD:** Trendin gücünü ve ivmesini ölçer.
-                        - **Hacim (Volume):** Piyasa hareketinin arkasındaki gerçek parayı doğrular.
-                        - **OBV:** Para giriş-çıkışının yönünü takip eder.
-                        - **EMA20/50:** Hareketli ortalamaların kesişimleriyle trend omurgasını çizer.
-                        - **TEMA:** Gecikmeyi ortadan kaldıran hızlı yön göstergesidir.
-                        - **Bollinger:** Sıkışma ve patlama noktalarını gösterir.
-                        - **ATR:** Volatiliteyi ölçerek uygun Stop-Loss ve risk aralığını tanımlar.
-                        """)
                     
     except Exception as e:
         st.error(f"Bir hata oluştu: {e}")
