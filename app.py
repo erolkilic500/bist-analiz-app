@@ -8,7 +8,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="BIST 5dk Teknik Analiz Paneli", layout="wide")
 
-st.title("📈 BIST 5 Dakikalık Scalping ve Bireysel İndikatör Puanlama Paneli")
+st.title("📈 BIST 5 Dakikalık Scalping ve 10 İndikatör Puanlama Paneli")
 st.write("Doğrudan Borsa İstanbul verileriyle saf matematiksel ve objektif teknik analiz!")
 
 if 'last_searched_ticker' not in st.session_state:
@@ -70,7 +70,7 @@ if st.button("Teknik Analizi Hesapla"):
                 
                 df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
                 
-                if df.empty or len(df) < 5:
+                if df.empty or len(df) < 10:
                     st.error("Seçilen periyot için yeterli teknik veri hesaplanamadı.")
                 else:
                     default_yf_price = float(df['Close'].iloc[-1])
@@ -93,9 +93,55 @@ if st.button("Teknik Analizi Hesapla"):
                     else:
                         last_price = default_yf_price
                     
-                    # --- 8 İNDİKATÖR VE BİREYSEL 1-10 PUANLAMA HESABI ---
+                    # --- 10 İNDİKATÖR VE BİREYSEL 1-10 PUANLAMA HESABI ---
                     
-                    # 1. Stochastic
+                    # 1. RSI (14)
+                    delta = df['Close'].diff()
+                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                    rs = gain / loss
+                    rsi = 100 - (100 / (1 + rs))
+                    val_rsi = float(rsi.iloc[-1])
+                    if 40 <= val_rsi <= 70:
+                        rsi_signal = f"[ + ] (RSI: {val_rsi:.1f} - Sağlıklı Bölge)"
+                        rsi_score = 9
+                    elif val_rsi < 30:
+                        rsi_signal = f"[ + ] ⭐ (RSI: {val_rsi:.1f} - Aşırı Satım/Dip Adayı)"
+                        rsi_score = 8
+                    elif val_rsi > 70:
+                        rsi_signal = f"[ - ] ⚠️ (RSI: {val_rsi:.1f} - Aşırı Alım)"
+                        rsi_score = 4
+                    else:
+                        rsi_signal = f"[ - ] (RSI: {val_rsi:.1f} - Zayıf Bölge)"
+                        rsi_score = 5
+
+                    # 2. SuperTrend (10, 3)
+                    hl2 = (df['High'] + df['Low']) / 2
+                    high_low = df['High'] - df['Low']
+                    high_close = np.abs(df['High'] - df['Close'].shift())
+                    low_close = np.abs(df['Low'] - df['Close'].shift())
+                    tr_st = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                    atr_st = tr_st.rolling(10).mean()
+                    
+                    upper_band = hl2 + (3 * atr_st)
+                    lower_band = hl2 - (3 * atr_st)
+                    
+                    # Basitleştirilmiş SuperTrend yön tespiti
+                    st_trend = 1
+                    super_val = float(lower_band.iloc[-1])
+                    if df['Close'].iloc[-1] < float(upper_band.iloc[-1]) and df['Close'].iloc[-1] > float(lower_band.iloc[-1]):
+                        st_trend = 1
+                    else:
+                        st_trend = 1 if df['Close'].iloc[-1] > float(hl2.iloc[-1]) else -1
+                        
+                    if st_trend == 1:
+                        st_signal = f"[ + ] ⭐ (SuperTrend: Yükseliş Trendinde)"
+                        st_score = 10
+                    else:
+                        st_signal = f"[ - ] ⚠️ (SuperTrend: Düşüş Trendinde)"
+                        st_score = 2
+
+                    # 3. Stochastic
                     low_14 = df['Low'].rolling(14).min()
                     high_14 = df['High'].rolling(14).max()
                     stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
@@ -109,7 +155,7 @@ if st.button("Teknik Analizi Hesapla"):
                         stoch_signal = f"[ - ] ⚠️ (%K: {val_stoch_k:.1f} < %D: {val_stoch_d:.1f})"
                         stoch_score = 3
                     
-                    # 2. MACD
+                    # 4. MACD
                     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                     macd_line = exp1 - exp2
@@ -123,7 +169,7 @@ if st.button("Teknik Analizi Hesapla"):
                         macd_signal = f"[ - ] ⚠️ (MACD: {val_macd:.2f} < Sinyal: {val_sig:.2f})"
                         macd_score = 2
                     
-                    # 3. Hacim (Volume)
+                    # 5. Hacim (Volume)
                     vol_current = float(df['Volume'].iloc[-1])
                     vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
                     if vol_current > vol_ma:
@@ -133,7 +179,7 @@ if st.button("Teknik Analizi Hesapla"):
                         vol_signal = f"[ - ] (Hacim: {vol_current:,.0f} < Ort)"
                         vol_score = 4
                     
-                    # 4. OBV
+                    # 6. OBV
                     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
                     obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
                     val_obv = float(obv.iloc[-1])
@@ -145,19 +191,19 @@ if st.button("Teknik Analizi Hesapla"):
                         obv_signal = f"[ - ] (OBV < OBV Ort)"
                         obv_score = 4
                     
-                    # 5. EMA 20/50 (Golden Cross / Death Cross Puanlaması)
+                    # 7. EMA 20/50 (Golden Cross / Death Cross)
                     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
                     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
                     val_ema20 = float(ema20.iloc[-1])
                     val_ema50 = float(ema50.iloc[-1])
                     if val_ema20 > val_ema50:
                         ema_signal = f"[ + ] ⭐ (EMA20: {val_ema20:.2f} > EMA50: {val_ema50:.2f})"
-                        ema_score = 10  # Golden Cross durumuna tam 10 puan!
+                        ema_score = 10
                     else:
                         ema_signal = f"[ - ] ⚠️ (EMA20: {val_ema20:.2f} < EMA50: {val_ema50:.2f})"
-                        ema_score = 3   # Death Cross durumu
+                        ema_score = 3
                     
-                    # 6. TEMA
+                    # 8. TEMA
                     ema_t1 = df['Close'].ewm(span=9).mean()
                     ema_t2 = ema_t1.ewm(span=9).mean()
                     ema_t3 = ema_t2.ewm(span=9).mean()
@@ -170,7 +216,7 @@ if st.button("Teknik Analizi Hesapla"):
                         tema_signal = f"[ - ] (Fiyat < TEMA: {val_tema:.2f})"
                         tema_score = 4
                     
-                    # 7. Bollinger Bands (BB)
+                    # 9. Bollinger Bands (BB)
                     bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
                     val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
                     bb_std = df['Close'].rolling(20).std() if len(df) >= 20 else df['Close'].std()
@@ -185,7 +231,7 @@ if st.button("Teknik Analizi Hesapla"):
                         bb_signal = f"[ - ] (Fiyat < BB Orta: {val_bb:.2f})"
                         bb_score = 4
                     
-                    # 8. ATR
+                    # 10. ATR
                     high_low = df['High'] - df['Low']
                     high_close = np.abs(df['High'] - df['Close'].shift())
                     low_close = np.abs(df['Low'] - df['Close'].shift())
@@ -200,13 +246,13 @@ if st.button("Teknik Analizi Hesapla"):
                         atr_signal = f"[ - ] (ATR: {val_atr:.2f} < Durgun)"
                         atr_score = 5
                     
-                    # Genel Al/Sat Kararı (Arka planda)
-                    signals = [macd_signal, ema_signal, obv_signal, atr_signal, tema_signal, vol_signal, stoch_signal, bb_signal]
+                    # Genel Al/Sat Kararı (Arka planda 10 üzerinden)
+                    signals = [rsi_signal, st_signal, macd_signal, ema_signal, stoch_signal, vol_signal, obv_signal, tema_signal, bb_signal, atr_signal]
                     score = sum(1 for s in signals if "[ + ]" in s)
                     
-                    if score >= 6:
+                    if score >= 7:
                         sinyal_text = "GÜÇLÜ AL"
-                    elif score >= 4:
+                    elif score >= 5:
                         sinyal_text = "BEKLE"
                     else:
                         sinyal_text = "SAT"
@@ -241,7 +287,9 @@ if st.button("Teknik Analizi Hesapla"):
                         
                     st.markdown("--------------------------------------------------")
                     
-                    # --- HER İNDİKATÖRÜN HEMEN YANINDA BİREYSEL 1-10 PUANI ---
+                    # --- 10 İNDİKATÖRÜN HEMEN YANINDA BİREYSEL 1-10 PUANI ---
+                    st.markdown("**RSI:** `" + rsi_signal + "` &nbsp;➔&nbsp; **Puan:** `" + f"{rsi_score}/10" + "`")
+                    st.markdown("**SuperTrend:** `" + st_signal + "` &nbsp;➔&nbsp; **Puan:** `" + f"{st_score}/10" + "`")
                     st.markdown("**Stochastic:** `" + stoch_signal + "` &nbsp;➔&nbsp; **Puan:** `" + f"{stoch_score}/10" + "`")
                     st.markdown("**MACD:** `" + macd_signal + "` &nbsp;➔&nbsp; **Puan:** `" + f"{macd_score}/10" + "`")
                     st.markdown("**Hacim:** `" + vol_signal + "` &nbsp;➔&nbsp; **Puan:** `" + f"{vol_score}/10" + "`")
@@ -252,9 +300,9 @@ if st.button("Teknik Analizi Hesapla"):
                     st.markdown("**ATR:** `" + atr_signal + "` &nbsp;➔&nbsp; **Puan:** `" + f"{atr_score}/10" + "`")
                         
                     st.markdown("--------------------------------------------------")
-                    st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Genel Durum :** `" + str(score) + "/8 Olumlu`")
+                    st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Genel Durum :** `" + str(score) + "/10 Olumlu`")
                     st.markdown("--------------------------------------------------")
-                    st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir. Her indikatörün yanındaki puan, o anki hisse verisine göre 1-10 arasında özel olarak hesaplanmıştır.")
+                    st.caption("⭐ **Not:** Yıldız simgesi pozitif sinyalleri, ⚠️ simgesi ise negatif/riskli sinyalleri gösterir. Her indikatörün yanındaki puan, o anki hisse verisine göre 1-10 arasında özel olarak hesaplanmıştır.")
                     
                     # --- GRAFİK PANELİ ---
                     st.subheader(f"📊 {clean_ticker} 5 Dakikalık İndikatörlü Fiyat ve Osilatör Grafikleri")
@@ -279,15 +327,17 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     with st.expander("📚 İndikatör Değerleri ve Anlamları (Eğitim Rehberi)"):
                         st.markdown("""
-                        - **Stochastic (Oscillator):** 0-100 arasında değer alır. 20 seviyesi altı aşırı satış, 80 üzeri aşırı alımdır. Kısa vadede en kritik zamanlama aracıdır.
-                        - **MACD:** Momentum göstergesidir. Sıfırın üzerinde pozitif kesişim boğa piyasasına, sıfırın altında kalması ayı piyasasına işaret eder.
-                        - **Hacim (Volume):** Son mumdaki işlem adedidir. Hacmin ortalamanın üzerinde olması hareketin kalıcılığını teyit eder.
-                        - **OBV (Denge İşlem Hacmi):** Para giriş-çıkışını kümülatif takip eder.
-                        - **EMA20/50 (Üstel Hareketli Ortalama):** Kısa vadeli trend yönünü ve ortalamaların kesişim yerlerini gösterir.
-                        - **TEMA (Üçlü Üstel Ort.):** Gecikmeyi en aza indiren hızlı yön filtresidir.
-                        - **Bollinger (BB):** Fiyatın volatilite sınırlarını ve orta ortalamasını gösterir.
-                        - **ATR (Ortalama Gerçek Aralık):** Oynaklığı ölçerek risk ve Stop-Loss seviyelerini ayarlamayı sağlar.
+                        - **RSI (Relative Strength Index):** 0-100 arası momentum ölçer. 30 altı aşırı satım (fırsat), 70 üstü aşırı alım (risk) bölgesidir.
+                        - **SuperTrend:** Trendin yönünü belirleyen ve takip eden üst düzey bir filtre ve stop-loss rehberidir.
+                        - **Stochastic (Oscillator):** 0-100 arasında değer alır. Kısa vadede nokta atışı dip-tepe zamanlaması yapar.
+                        - **MACD:** Trendin gücünü ve yön değişimlerini erken yakalayan momentum göstergesidir.
+                        - **Hacim (Volume):** Son mumdaki işlem adedidir. Hacimsiz kırılımları filtreler.
+                        - **OBV (Denge İşlem Hacmi):** Kümülatif para giriş-çıkışını takip eder.
+                        - **EMA20/50 (Üstel Hareketli Ortalama):** Golden Cross / Death Cross yapılarıyla ana trendin omurgasını oluşturur.
+                        - **TEMA (Üçlü Üstel Ort.):** Fiyat hareketlerine anında tepki veren hızlı yön filtresidir.
+                        - **Bollinger (BB):** Volatilite kanallarını ve sıkışmaları gösterir.
+                        - **ATR (Ortalama Gerçek Aralık):** Piyasa oynaklığını ölçerek risk ve stop-loss seviyelerini belirler.
                         """)
-                        
+                    
     except Exception as e:
         st.error(f"Bir hata oluştu: {e}")
