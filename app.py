@@ -22,18 +22,38 @@ clean_ticker = ticker_input.strip().upper()
 if not clean_ticker.endswith(".IS"):
     clean_ticker += ".IS"
 
-period_choice = st.selectbox("Periyot Seçin", ["5 Dakika", "1 Saat", "Günlük"])
+# Tüm İstenecek Periyot Seçenekleri
+period_options = [
+    "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
+    "1 Saat", "2 Saat", "3 Saat", "4 Saat",
+    "1 Günlük", "1 Haftalık", "1 Aylık", "3 Aylık", "6 Aylık", "1 Yıllık"
+]
 
-# Periyot eşleştirmesi
-if period_choice == "5 Dakika":
-    interval = "5m"
-    period = "5d"
-elif period_choice == "1 Saat":
-    interval = "1h"
-    period = "1mo"
-else:
-    interval = "1d"
-    period = "6mo"
+period_choice = st.selectbox("Periyot Seçin", period_options, index=3) # Varsayılan: 5 Dakika
+
+# Yahoo Finance İçin Periyot ve Interval (Aralık) Eşleştirmesi
+interval_map = {
+    "1 Dakika": ("1m", "7d"),
+    "2 Dakika": ("2m", "1mo"),
+    "3 Dakika": ("2m", "1mo"),   # YF native 3m desteklemediğinde en yakın 2m kullanılır
+    "5 Dakika": ("5m", "1mo"),
+    "10 Dakika": ("5m", "1mo"),
+    "15 Dakika": ("15m", "1mo"),
+    "30 Dakika": ("30m", "3mo"),
+    "45 Dakika": ("15m", "3mo"),
+    "1 Saat": ("1h", "6mo"),
+    "2 Saat": ("1h", "1y"),
+    "3 Saat": ("1h", "1y"),
+    "4 Saat": ("1h", "2y"),
+    "1 Günlük": ("1d", "2y"),
+    "1 Haftalık": ("1wk", "5y"),
+    "1 Aylık": ("1mo", "10y"),
+    "3 Aylık": ("3mo", "max"),
+    "6 Aylık": ("3mo", "max"),
+    "1 Yıllık": ("1mo", "max")
+}
+
+interval, period = interval_map.get(period_choice, ("5m", "1mo"))
 
 if st.button("Teknik Analizi Hesapla"):
     try:
@@ -50,8 +70,8 @@ if st.button("Teknik Analizi Hesapla"):
                 # Eksik verileri temizleme
                 df = df.dropna(subset=['Close', 'High', 'Low', 'Volume'])
                 
-                if df.empty:
-                    st.error("İşlenecek geçerli veri kalmadı.")
+                if df.empty or len(df) < 5:
+                    st.error("Seçilen periyot için yeterli teknik veri hesaplanamadı.")
                 else:
                     # Son geçerli fiyatı çekme
                     default_yf_price = float(df['Close'].iloc[-1])
@@ -107,7 +127,7 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     # 4. Hacim
                     vol_current = float(df['Volume'].iloc[-1])
-                    vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1])
+                    vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
                     if vol_current > vol_ma:
                         vol_signal = f"[ + ] (Hacim: {vol_current:,.0f} > Ort)"
                     else:
@@ -115,9 +135,9 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     # 5. OBV
                     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
-                    obv_ma = obv.rolling(10).mean()
+                    obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
                     val_obv = float(obv.iloc[-1])
-                    val_obv_ma = float(obv_ma.iloc[-1])
+                    val_obv_ma = float(obv_ma.iloc[-1]) if isinstance(obv_ma, pd.Series) else float(obv_ma)
                     if val_obv > val_obv_ma:
                         obv_signal = f"[ + ] (OBV > OBV Ort)"
                     else:
@@ -142,15 +162,15 @@ if st.button("Teknik Analizi Hesapla"):
                     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
                     atr = tr.rolling(14).mean()
                     val_atr = float(atr.iloc[-1])
-                    val_atr_ma = float(atr.rolling(30).mean().iloc[-1])
-                    if val_atr > val_atr_ma:
+                    atr_ma = atr.rolling(30).mean().iloc[-1] if len(df) >= 30 else atr.mean()
+                    if val_atr > float(atr_ma):
                         atr_signal = f"[ + ] (ATR: {val_atr:.2f} > Volatiliteli)"
                     else:
                         atr_signal = f"[ - ] (ATR: {val_atr:.2f} < Durgun)"
                     
                     # 8. Bollinger Bands (BB)
-                    bb_mid = df['Close'].rolling(20).mean()
-                    val_bb = float(bb_mid.iloc[-1])
+                    bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
+                    val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
                     if df['Close'].iloc[-1] > val_bb:
                         bb_signal = f"[ + ] (Fiyat > BB Orta: {val_bb:.2f})"
                     else:
@@ -199,7 +219,7 @@ if st.button("Teknik Analizi Hesapla"):
                         
                     st.markdown("--------------------------------------------------")
                     
-                    # Alt alta net görünüm için indikatör satırları
+                    # İndikatör satırları
                     st.markdown("**MACD:** `" + macd_signal + "`")
                     st.markdown("**EMA20/50:** `" + ema_signal + "`")
                     st.markdown("**TEMA:** `" + tema_signal + "`")
@@ -220,7 +240,7 @@ if st.button("Teknik Analizi Hesapla"):
                         - **EMA20/50 (Üstel Hareketli Ortalama):** 20 periyotluk ortalamanın 50 periyotluk ortalama üzerindeki konumunu ölçer. EMA20'nin EMA50'yi yukarı kesmesi pozitif trend onayıdır.
                         - **MACD:** Fiyat momentumunu gösterir. Sıfırın üzerinde pozitif kesişim boğa piyasasına, sıfırın altında kalması ise ayı piyasasına işaret eder.
                         - **TEMA (Üçlü Üstel Ort.):** Gecikmeyi en aza indiren hızlı ortalamadır. Fiyatın TEMA değerinin üzerinde olması kısa vadeli güçlü yükseliş ivmesini gösterir.
-                        - **Hacim (Volume):** Son mummaki işlem adedidir. Hacmin 20 günlük ortalamasının üzerinde olması, gerçekleşen hareketin büyük yatırımcılarca desteklendiğini gösterir.
+                        - **Hacim (Volume):** Son mumdaki işlem adedidir. Hacmin 20 periyotluk ortalamasının üzerinde olması, gerçekleşen hareketin büyük yatırımcılarca desteklendiğini gösterir.
                         - **OBV (Denge İşlem Hacmi):** Para giriş-çıkışını ölçer. OBV değerinin ortalamasının üzerine çıkması, hisseye taze para girişi olduğunu gösterir.
                         - **Stochastic (Oscillator):** 0-100 arasında değer alır. 20 seviyesi altı aşırı satış (fırsat), 80 üzeri aşırı alım bölgesidir. K çizgisinin D çizgisini yukarı kesmesi al sinyalidir.
                         - **ATR (Ortalama Gerçek Aralık):** Hissenin oynaklığını (volatilitesini) ölçer. ATR değerinin yükselmesi hissede sert hareketlerin yaklaştığını gösterir.
