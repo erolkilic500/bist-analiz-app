@@ -175,4 +175,17 @@ if st.button("Teknik Analizi Hesapla"):
                     with col1:
                         st.markdown(f"**MACD** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{macd_signal}`")
                         st.markdown(f"**EMA20/50** &nbsp;&nbsp;&nbsp; `{ema_signal}`")
-                        st.markdown(f"**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        st.markdown(f"**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{obv_signal}`")
+                        st.markdown(f"**ATR** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{atr_signal}`")
+                    with col2:
+                        st.markdown(f"**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{tema_signal}`")
+                        st.markdown(f"**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{vol_signal}`")
+                        st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{stoch_signal}`")
+                        st.markdown(f"**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{bb_signal}`")
+                        
+                    st.markdown("--------------------------------------------------")
+                    st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `{score}/8`")
+                    st.markdown("--------------------------------------------------")
+                    
+    except Exception as e:
+        st.error(f"Bir hata oluştu: {e}")
