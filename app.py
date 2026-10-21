@@ -3,12 +3,13 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime
 
 # Sayfa Yapılandırması
-st.set_page_config(page_title="BIST Teknik Analiz Paneli", layout="centered")
+st.set_page_config(page_title="BIST Teknik Analiz Paneli", layout="wide")
 
-st.title("📈 BIST Otomatik 8 İndikatör Skorlama Paneli")
+st.title("📈 BIST Otomatik 8 İndikatör Skorlama ve Grafik Paneli")
 st.write("Doğrudan Borsa İstanbul verileriyle saf matematiksel ve objektif teknik analiz!")
 
 # Hisse Kodu ve Canlı Fiyat Girişi Yan Yana
@@ -116,10 +117,10 @@ if st.button("Teknik Analizi Hesapla"):
                         macd_signal = f"[ - ] ⚠️ (MACD: {val_macd:.2f} < Sinyal: {val_sig:.2f})"
                     
                     # 3. TEMA
-                    ema1 = df['Close'].ewm(span=9).mean()
-                    ema2 = ema1.ewm(span=9).mean()
-                    ema3 = ema2.ewm(span=9).mean()
-                    tema = 3 * (ema1 - ema2) + ema3
+                    ema_t1 = df['Close'].ewm(span=9).mean()
+                    ema_t2 = ema_t1.ewm(span=9).mean()
+                    ema_t3 = ema_t2.ewm(span=9).mean()
+                    tema = 3 * (ema_t1 - ema_t2) + ema_t3
                     val_tema = float(tema.iloc[-1])
                     if df['Close'].iloc[-1] > val_tema:
                         tema_signal = f"[ + ] (Fiyat > TEMA: {val_tema:.2f})"
@@ -172,6 +173,11 @@ if st.button("Teknik Analizi Hesapla"):
                     # 8. Bollinger Bands (BB)
                     bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
                     val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
+                    bb_std = df['Close'].rolling(20).std() if len(df) >= 20 else df['Close'].std()
+                    val_std = float(bb_std.iloc[-1]) if isinstance(bb_std, pd.Series) else float(bb_std)
+                    bb_upper = bb_mid + (2 * val_std)
+                    bb_lower = bb_mid - (2 * val_std)
+                    
                     if df['Close'].iloc[-1] > val_bb:
                         bb_signal = f"[ + ] (Fiyat > BB Orta: {val_bb:.2f})"
                     else:
@@ -216,7 +222,7 @@ if st.button("Teknik Analizi Hesapla"):
                         st.write("`" + f"{ort_val:.2f}" + "`")
                     with c4:
                         st.write("**Max**")
-                        st.write("`" + f"{max_val:.2f}" + "`")
+                        st.write("`" + f"{max_val:.2f}`")
                         
                     st.markdown("--------------------------------------------------")
                     
@@ -235,60 +241,32 @@ if st.button("Teknik Analizi Hesapla"):
                     st.markdown("--------------------------------------------------")
                     st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir.")
                     
-                    # --- İNTERAKTİF GRAFİK (PLOTLY CANDLESTICK + EMA) ---
-                    st.subheader("📊 Fiyat ve Trend Grafiği")
-                    fig = go.Figure()
+                    # --- PROFESYONEL ÇOKLU PANEL GRAFİK (SUBPLOTS) ---
+                    st.subheader("📊 Profesyonel İndikatörlü Fiyat ve Osilatör Grafikleri")
                     
-                    # Mum Grafiği
-                    fig.add_trace(go.Candlestick(
-                        x=df.index,
-                        open=df['Open'],
-                        high=df['High'],
-                        low=df['Low'],
-                        close=df['Close'],
-                        name='Mumlar'
-                    ))
+                    # 3 Satırlı Alt Alta Grafik Paneli (1. Fiyat/Bollinger/EMA/TEMA, 2. MACD, 3. Stochastic)
+                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
+                                        vertical_spacing=0.05, 
+                                        row_heights=[0.6, 0.2, 0.2])
                     
-                    # EMA 20 Çizgisi
-                    fig.add_trace(go.Scatter(
-                        x=df.index,
-                        y=ema20,
-                        mode='lines',
-                        name='EMA 20',
-                        line=dict(color='orange', width=1.5)
-                    ))
+                    # 1. Panel: Fiyat Mumları, Bollinger Bantları, EMA 20/50 ve TEMA
+                    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Mumlar'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=ema20, mode='lines', name='EMA 20', line=dict(color='orange', width=1.2)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=ema50, mode='lines', name='EMA 50', line=dict(color='dodgerblue', width=1.2)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=tema, mode='lines', name='TEMA', line=dict(color='purple', width=1.2)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=bb_upper, mode='lines', name='BB Üst', line=dict(color='gray', width=1, dash='dot')), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=bb_lower, mode='lines', name='BB Alt', line=dict(color='gray', width=1, dash='dot'), fill='tonexty', fillcolor='rgba(128,128,128,0.05)'), row=1, col=1)
                     
-                    # EMA 50 Çizgisi
-                    fig.add_trace(go.Scatter(
-                        x=df.index,
-                        y=ema50,
-                        mode='lines',
-                        name='EMA 50',
-                        line=dict(color='dodgerblue', width=1.5)
-                    ))
+                    # 2. Panel: MACD ve Sinyal Çizgisi
+                    fig.add_trace(go.Scatter(x=df.index, y=macd_line, mode='lines', name='MACD', line=dict(color='cyan', width=1.5)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=signal_line, mode='lines', name='MACD Sinyal', line=dict(color='magenta', width=1.5)), row=2, col=1)
+                    
+                    # 3. Panel: Stochastic (%K ve %D)
+                    fig.add_trace(go.Scatter(x=df.index, y=stoch_k, mode='lines', name='Stoch %K', line=dict(color='yellow', width=1.5)), row=3, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=stoch_d, mode='lines', name='Stoch %D', line=dict(color='red', width=1.5)), row=3, col=1)
                     
                     fig.update_layout(
-                        title=f"{clean_ticker} ({period_choice})",
-                        xaxis_title="Zaman",
-                        yaxis_title="Fiyat",
                         template="plotly_dark",
-                        height=450,
-                        margin=dict(l=10, r=10, t=30, b=10)
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # --- EĞİTİM VE İNDİKATÖR ANLAMLARI BÖLÜMÜ ---
-                    with st.expander("📚 İndikatör Değerleri ve Anlamları (Eğitim Rehberi)"):
-                        st.markdown("""
-                        - **EMA20/50 (Üstel Hareketli Ortalama):** 20 periyotluk ortalamanın 50 periyotluk ortalama üzerindeki konumunu ölçer. EMA20'nin EMA50'yi yukarı kesmesi pozitif trend onayıdır.
-                        - **MACD:** Fiyat momentumunu gösterir. Sıfırın üzerinde pozitif kesişim boğa piyasasına, sıfırın altında kalması ise ayı piyasasına işaret eder.
-                        - **TEMA (Üçlü Üstel Ort.):** Gecikmeyi en aza indiren hızlı ortalamadır. Fiyatın TEMA değerinin üzerinde olması kısa vadeli güçlü yükseliş ivmesini gösterir.
-                        - **Hacim (Volume):** Son mumdaki işlem adedidir. Hacmin 20 periyotluk ortalamasının üzerinde olması, gerçekleşen hareketin büyük yatırımcılarca desteklendiğini gösterir.
-                        - **OBV (Denge İşlem Hacmi):** Para giriş-çıkışını ölçer. OBV değerinin ortalamasının üzerine çıkması, hisseye taze para girişi olduğunu gösterir.
-                        - **Stochastic (Oscillator):** 0-100 arasında değer alır. 20 seviyesi altı aşırı satış (fırsat), 80 üzeri aşırı alım bölgesidir. K çizgisinin D çizgisini yukarı kesmesi al sinyalidir.
-                        - **ATR (Ortalama Gerçek Aralık):** Hissenin oynaklığını (volatilitesini) ölçer. ATR değerinin yükselmesi hissede sert hareketlerin yaklaştığını gösterir.
-                        - **BB (Bollinger Bandı Orta Çizgisi):** Hissenin 20 periyotluk basit ortalamasıdır. Fiyatın bant ortasının üzerinde kalması yükseliş trendinin devam ettiğini doğrular.
-                        """)
-                    
-    except Exception as e:
-        st.error(f"Bir hata oluştu: {e}")
+                        height=750,
+                        margin=dict(l=10, r=10, t=30, b=10),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
