@@ -42,11 +42,11 @@ if st.button("Teknik Analizi Hesapla"):
             if df.empty:
                 st.error("Hisse verisi bulunamadı. Lütfen geçerli bir hisse kodu girin.")
             else:
-                # Çok katmanlı sütun başlığı sorununu en başta çözüyoruz
+                # Çok katmanlı sütun başlığı sorununu çözme
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
                 
-                # Eksik verileri güvenli şekilde temizleme
+                # Eksik verileri temizleme
                 df = df.dropna(subset=['Close', 'High', 'Low', 'Volume'])
                 
                 if df.empty:
@@ -69,37 +69,54 @@ if st.button("Teknik Analizi Hesapla"):
                     else:
                         last_price = default_yf_price
                     
-                    # --- 8 İNDİKATÖR HESAPLAMA MANTIĞI ---
+                    # --- 8 İNDİKATÖR HESAPLAMA MANTIĞI & YILDIZ (GOLDEN CROSS) KONTROLÜ ---
+                    
+                    # 1. EMA 20/50 (Kesişim)
                     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
                     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
-                    ema_signal = "[ + ]" if ema20.iloc[-1] > ema50.iloc[-1] else "[ - ]"
+                    if ema20.iloc[-1] > ema50.iloc[-1]:
+                        ema_signal = "[ + ] ⭐"
+                    else:
+                        ema_signal = "[ - ]"
                     
+                    # 2. MACD (Kesişim)
                     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                     macd_line = exp1 - exp2
                     signal_line = macd_line.ewm(span=9, adjust=False).mean()
-                    macd_signal = "[ + ]" if macd_line.iloc[-1] > signal_line.iloc[-1] else "[ - ]"
+                    if macd_line.iloc[-1] > signal_line.iloc[-1]:
+                        macd_signal = "[ + ] ⭐"
+                    else:
+                        macd_signal = "[ - ]"
                     
+                    # 3. TEMA
                     ema1 = df['Close'].ewm(span=9).mean()
                     ema2 = ema1.ewm(span=9).mean()
                     ema3 = ema2.ewm(span=9).mean()
                     tema = 3 * (ema1 - ema2) + ema3
                     tema_signal = "[ + ]" if df['Close'].iloc[-1] > tema.iloc[-1] else "[ - ]"
                     
+                    # 4. Hacim
                     vol_current = df['Volume'].iloc[-1]
                     vol_ma = df['Volume'].rolling(20).mean().iloc[-1]
                     vol_signal = "[ + ]" if vol_current > vol_ma else "[ - ]"
                     
+                    # 5. OBV
                     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
                     obv_ma = obv.rolling(10).mean()
                     obv_signal = "[ + ]" if obv.iloc[-1] > obv_ma.iloc[-1] else "[ - ]"
                     
+                    # 6. Stochastic (Kesişim)
                     low_14 = df['Low'].rolling(14).min()
                     high_14 = df['High'].rolling(14).max()
                     stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
                     stoch_d = stoch_k.rolling(3).mean()
-                    stoch_signal = "[ + ]" if stoch_k.iloc[-1] > stoch_d.iloc[-1] else "[ - ]"
+                    if stoch_k.iloc[-1] > stoch_d.iloc[-1]:
+                        stoch_signal = "[ + ] ⭐"
+                    else:
+                        stoch_signal = "[ - ]"
                     
+                    # 7. ATR
                     high_low = df['High'] - df['Low']
                     high_close = np.abs(df['High'] - df['Close'].shift())
                     low_close = np.abs(df['Low'] - df['Close'].shift())
@@ -107,11 +124,13 @@ if st.button("Teknik Analizi Hesapla"):
                     atr = tr.rolling(14).mean()
                     atr_signal = "[ + ]" if atr.iloc[-1] > atr.rolling(30).mean().iloc[-1] else "[ - ]"
                     
+                    # 8. Bollinger Bands (BB)
                     bb_mid = df['Close'].rolling(20).mean()
                     bb_signal = "[ + ]" if df['Close'].iloc[-1] > bb_mid.iloc[-1] else "[ - ]"
                     
+                    # Skorlama (İçinde '+' geçen tüm sinyalleri sayar)
                     signals = [macd_signal, ema_signal, obv_signal, atr_signal, tema_signal, vol_signal, stoch_signal, bb_signal]
-                    score = signals.count("[ + ]")
+                    score = sum(1 for s in signals if "[ + ]" in s)
                     
                     if score >= 6:
                         sinyal_text = "GÜÇLÜ AL"
@@ -123,14 +142,14 @@ if st.button("Teknik Analizi Hesapla"):
                     stop_loss = last_price * (1 - 0.015)
                     take_profit = last_price * (1 + 0.05)
                     
-                    # --- DÜZELTME BURADA: Son seansın (bugünkü mumun) min, max ve ortalama değerleri ---
+                    # Son seansın (bugünkü mumun) min, max ve ortalama değerleri
                     min_val = float(df['Low'].iloc[-1])
                     max_val = float(df['High'].iloc[-1])
                     ort_val = float((df['High'].iloc[-1] + df['Low'].iloc[-1] + df['Close'].iloc[-1]) / 3)
                     
                     current_time = datetime.now().strftime("%H:%M")
                     
-                    # Görseldeki Tablo Formatı
+                    # --- TABLO FORMATINDA ÇIKTI EKRANI ---
                     st.markdown("---")
                     st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
                     st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
@@ -156,17 +175,4 @@ if st.button("Teknik Analizi Hesapla"):
                     with col1:
                         st.markdown(f"**MACD** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{macd_signal}`")
                         st.markdown(f"**EMA20/50** &nbsp;&nbsp;&nbsp; `{ema_signal}`")
-                        st.markdown(f"**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{obv_signal}`")
-                        st.markdown(f"**ATR** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{atr_signal}`")
-                    with col2:
-                        st.markdown(f"**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{tema_signal}`")
-                        st.markdown(f"**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{vol_signal}`")
-                        st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{stoch_signal}`")
-                        st.markdown(f"**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{bb_signal}`")
-                        
-                    st.markdown("--------------------------------------------------")
-                    st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `{score}/8`")
-                    st.markdown("------------------")
-                    
-    except Exception as e:
-        st.error(f"Bir hata oluştu: {e}")
+                        st.markdown(f"**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
