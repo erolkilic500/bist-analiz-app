@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 from datetime import datetime
 
 # Sayfa Yapılandırması
@@ -68,7 +69,7 @@ if st.button("Teknik Analizi Hesapla"):
                     df.columns = df.columns.get_level_values(0)
                 
                 # Eksik verileri temizleme
-                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume'])
+                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
                 
                 if df.empty or len(df) < 5:
                     st.error("Seçilen periyot için yeterli teknik veri hesaplanamadı.")
@@ -233,6 +234,48 @@ if st.button("Teknik Analizi Hesapla"):
                     st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `" + str(score) + "/8`")
                     st.markdown("--------------------------------------------------")
                     st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir.")
+                    
+                    # --- İNTERAKTİF GRAFİK (PLOTLY CANDLESTICK + EMA) ---
+                    st.subheader("📊 Fiyat ve Trend Grafiği")
+                    fig = go.Figure()
+                    
+                    # Mum Grafiği
+                    fig.add_trace(go.Candlestick(
+                        x=df.index,
+                        open=df['Open'],
+                        high=df['High'],
+                        low=df['Low'],
+                        close=df['Close'],
+                        name='Mumlar'
+                    ))
+                    
+                    # EMA 20 Çizgisi
+                    fig.add_trace(go.Scatter(
+                        x=df.index,
+                        y=ema20,
+                        mode='lines',
+                        name='EMA 20',
+                        line=dict(color='orange', width=1.5)
+                    ))
+                    
+                    # EMA 50 Çizgisi
+                    fig.add_trace(go.Scatter(
+                        x=df.index,
+                        y=ema50,
+                        mode='lines',
+                        name='EMA 50',
+                        line=dict(color='dodgerblue', width=1.5)
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"{clean_ticker} ({period_choice})",
+                        xaxis_title="Zaman",
+                        yaxis_title="Fiyat",
+                        template="plotly_dark",
+                        height=450,
+                        margin=dict(l=10, r=10, t=30, b=10)
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
                     
                     # --- EĞİTİM VE İNDİKATÖR ANLAMLARI BÖLÜMÜ ---
                     with st.expander("📚 İndikatör Değerleri ve Anlamları (Eğitim Rehberi)"):
