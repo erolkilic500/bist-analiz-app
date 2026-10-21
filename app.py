@@ -12,10 +12,14 @@ st.set_page_config(page_title="BIST Teknik Analiz Paneli", layout="wide")
 st.title("📈 BIST Otomatik 8 İndikatör Skorlama ve Grafik Paneli")
 st.write("Doğrudan Borsa İstanbul verileriyle saf matematiksel ve objektif teknik analiz!")
 
+# Hisse Kodu Değişimi Kontrolü için Session State
+if 'last_searched_ticker' not in st.session_state:
+    st.session_state['last_searched_ticker'] = ""
+
 # Hisse Kodu ve Canlı Fiyat Girişi Yan Yana
 col_t, col_m = st.columns(2)
 with col_t:
-    ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, BIMAS)", value="BIMAS")
+    ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, BIMAS, TGSAS)", value="TGSAS")
 with col_m:
     manual_price_str = st.text_input("Ziraat Canlı Fiyat", value="")
     st.markdown("<p style='font-size:12px; color:#ff4b4b; font-weight:bold; margin-top:-10px; margin-bottom:0px;'>DOĞRU SONUÇ ALMAK İSTİYORSANIZ ZİRAAT/MİDAS VB ARACI KURUMUNDAKİ HİSSENİN ANLIK FİYATINI YAZINIZ</p>", unsafe_allow_html=True)
@@ -23,6 +27,10 @@ with col_m:
 clean_ticker = ticker_input.strip().upper()
 if not clean_ticker.endswith(".IS"):
     clean_ticker += ".IS"
+
+# Hisse değiştiyse bildirim
+if st.session_state['last_searched_ticker'] != clean_ticker and st.session_state['last_searched_ticker'] != "":
+    st.info(f"💡 Hisse {st.session_state['last_searched_ticker']} -> {clean_ticker} olarak değiştirildi. Lütfen canlı fiyat alanını yeni hisseye göre güncelleyin.")
 
 # Tüm İstenecek Periyot Seçenekleri
 period_options = [
@@ -58,8 +66,9 @@ interval_map = {
 interval, period = interval_map.get(period_choice, ("5m", "1mo"))
 
 if st.button("Teknik Analizi Hesapla"):
+    st.session_state['last_searched_ticker'] = clean_ticker
     try:
-        with st.spinner("Veriler indiriliyor ve analiz ediliyor..."):
+        with st.spinner(f"{clean_ticker} verileri indiriliyor ve analiz ediliyor..."):
             df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             
             if df.empty:
@@ -75,20 +84,28 @@ if st.button("Teknik Analizi Hesapla"):
                 if df.empty or len(df) < 5:
                     st.error("Seçilen periyot için yeterli teknik veri hesaplanamadı.")
                 else:
-                    # Son geçerli fiyatı çekme
+                    # Son geçerli YF fiyatı
                     default_yf_price = float(df['Close'].iloc[-1])
                     
+                    # Seçilen periyodun/veri setinin tamamındaki Gerçek Min ve Max değerleri
+                    period_min = float(df['Low'].min())
+                    period_max = float(df['High'].max())
+                    
                     # Manuel fiyat kontrolü
+                    manual_price = 0.0
                     try:
                         if manual_price_str.strip() != "":
                             manual_price = float(manual_price_str.replace(",", "."))
-                        else:
-                            manual_price = 0.0
                     except:
                         manual_price = 0.0
 
+                    # Eğer kullanıcı manuel fiyat girdiyse ama girilen fiyat hissenin genel fiyat aralığından %50'den fazla sapıyorsa (eski hisse fiyatı kalmışsa)
                     if manual_price > 0:
-                        last_price = manual_price
+                        if manual_price < (period_min * 0.5) or manual_price > (period_max * 1.5):
+                            st.warning(f"⚠️ Girilen {manual_price:.2f} TL fiyatı {clean_ticker} hissesinin mevcut fiyat seviyesinden çok farklı! Otomatik borsa verisi ({default_yf_price:.2f} TL) kullanıldı.")
+                            last_price = default_yf_price
+                        else:
+                            last_price = manual_price
                     else:
                         last_price = default_yf_price
                     
@@ -197,10 +214,10 @@ if st.button("Teknik Analizi Hesapla"):
                     stop_loss = last_price * (1 - 0.015)
                     take_profit = last_price * (1 + 0.05)
                     
-                    # Son seansın min, max ve ortalama değerleri
-                    min_val = float(df['Low'].iloc[-1])
-                    max_val = float(df['High'].iloc[-1])
-                    ort_val = float((df['High'].iloc[-1] + df['Low'].iloc[-1] + df['Close'].iloc[-1]) / 3)
+                    # Seçili periyodun doğru Min, Max ve Ortalama değerleri
+                    min_val = period_min
+                    max_val = period_max
+                    ort_val = float(df['Close'].mean())
                     
                     current_time = datetime.now().strftime("%H:%M")
                     
@@ -242,7 +259,7 @@ if st.button("Teknik Analizi Hesapla"):
                     st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir.")
                     
                     # --- PROFESYONEL ÇOKLU PANEL GRAFİK (SUBPLOTS) ---
-                    st.subheader("📊 Profesyonel İndikatörlü Fiyat ve Osilatör Grafikleri")
+                    st.subheader(f"📊 {clean_ticker} İndikatörlü Fiyat ve Osilatör Grafikleri")
                     
                     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
                     
@@ -256,27 +273,4 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     # 2. Panel: MACD
                     fig.add_trace(go.Scatter(x=df.index, y=macd_line, mode='lines', name='MACD', line=dict(color='cyan', width=1.5)), row=2, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=signal_line, mode='lines', name='MACD Sinyal', line=dict(color='magenta', width=1.5)), row=2, col=1)
-                    
-                    # 3. Panel: Stochastic
-                    fig.add_trace(go.Scatter(x=df.index, y=stoch_k, mode='lines', name='Stoch %K', line=dict(color='yellow', width=1.5)), row=3, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=stoch_d, mode='lines', name='Stoch %D', line=dict(color='red', width=1.5)), row=3, col=1)
-                    
-                    fig.update_layout(template="plotly_dark", height=750, margin=dict(l=10, r=10, t=30, b=10))
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # --- EĞİTİM VE İNDİKATÖR ANLAMLARI BÖLÜMÜ ---
-                    with st.expander("📚 İndikatör Değerleri ve Anlamları (Eğitim Rehberi)"):
-                        st.markdown("""
-                        - **EMA20/50 (Üstel Hareketli Ortalama):** 20 periyotluk ortalamanın 50 periyotluk ortalama üzerindeki konumunu ölçer. EMA20'nin EMA50'yi yukarı kesmesi pozitif trend onayıdır.
-                        - **MACD:** Fiyat momentumunu gösterir. Sıfırın üzerinde pozitif kesişim boğa piyasasına, sıfırın altında kalması ise ayı piyasasına işaret eder.
-                        - **TEMA (Üçlü Üstel Ort.):** Gecikmeyi en aza indiren hızlı ortalamadır. Fiyatın TEMA değerinin üzerinde olması kısa vadeli güçlü yükseliş ivmesini gösterir.
-                        - **Hacim (Volume):** Son mumdaki işlem adedidir. Hacmin 20 periyotluk ortalamasının üzerinde olması, gerçekleşen hareketin büyük yatırımcılarca desteklendiğini gösterir.
-                        - **OBV (Denge İşlem Hacmi):** Para giriş-çıkışını ölçer. OBV değerinin ortalamasının üzerine çıkması, hisseye taze para girişi olduğunu gösterir.
-                        - **Stochastic (Oscillator):** 0-100 arasında değer alır. 20 seviyesi altı aşırı satış (fırsat), 80 üzeri aşırı alım bölgesidir. K çizgisinin D çizgisini yukarı kesmesi al sinyalidir.
-                        - **ATR (Ortalama Gerçek Aralık):** Hissenin oynaklığını (volatilitesini) ölçer. ATR değerinin yükselmesi hissede sert hareketlerin yaklaştığını gösterir.
-                        - **BB (Bollinger Bandı Orta Çizgisi):** Hissenin 20 periyotluk basit ortalamasıdır. Fiyatın bant ortasının üzerinde kalması yükseliş trendinin devam ettiğini doğrular.
-                        """)
-                    
-    except Exception as e:
-        st.error(f"Bir hata oluştu: {e}")
+                    fig.add_trace(go.Scatter(x=df.index, y=signal_line, mode='lines', name='MACD Siny
