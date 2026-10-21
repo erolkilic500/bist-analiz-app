@@ -70,17 +70,17 @@ if st.button("Teknik Analizi Hesapla"):
                     else:
                         last_price = default_yf_price
                     
-                    # --- 8 İNDİKATÖR HESAPLAMA MANTIĞI & YILDIZ (GOLDEN CROSS) KONTROLÜ ---
+                    # --- 8 İNDİKATÖR HESAPLAMA MANTIĞI & KESİŞİM SİMGELERİ ---
                     
-                    # 1. EMA 20/50 (Kesişim)
+                    # 1. EMA 20/50 (Golden Cross / Death Cross)
                     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
                     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
                     if ema20.iloc[-1] > ema50.iloc[-1]:
                         ema_signal = "[ + ] ⭐"
                     else:
-                        ema_signal = "[ - ]"
+                        ema_signal = "[ - ] ⚠️"
                     
-                    # 2. MACD (Kesişim)
+                    # 2. MACD (Golden Cross / Death Cross)
                     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                     macd_line = exp1 - exp2
@@ -88,7 +88,7 @@ if st.button("Teknik Analizi Hesapla"):
                     if macd_line.iloc[-1] > signal_line.iloc[-1]:
                         macd_signal = "[ + ] ⭐"
                     else:
-                        macd_signal = "[ - ]"
+                        macd_signal = "[ - ] ⚠️"
                     
                     # 3. TEMA
                     ema1 = df['Close'].ewm(span=9).mean()
@@ -107,7 +107,7 @@ if st.button("Teknik Analizi Hesapla"):
                     obv_ma = obv.rolling(10).mean()
                     obv_signal = "[ + ]" if obv.iloc[-1] > obv_ma.iloc[-1] else "[ - ]"
                     
-                    # 6. Stochastic (Kesişim)
+                    # 6. Stochastic (Golden Cross / Death Cross)
                     low_14 = df['Low'].rolling(14).min()
                     high_14 = df['High'].rolling(14).max()
                     stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
@@ -115,7 +115,7 @@ if st.button("Teknik Analizi Hesapla"):
                     if stoch_k.iloc[-1] > stoch_d.iloc[-1]:
                         stoch_signal = "[ + ] ⭐"
                     else:
-                        stoch_signal = "[ - ]"
+                        stoch_signal = "[ - ] ⚠️"
                     
                     # 7. ATR
                     high_low = df['High'] - df['Low']
@@ -187,7 +187,7 @@ if st.button("Teknik Analizi Hesapla"):
                     st.markdown("--------------------------------------------------")
                     st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `" + str(score) + "/8`")
                     st.markdown("--------------------------------------------------")
-                    st.caption("⭐ **Not:** Yıldız simgesi, ilgili indikatörde ikili pozitif kesişim (Golden Cross / Yükseliş Onayı) oluştuğunu gösterir.")
+                    st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir.")
                     
     except Exception as e:
         st.error(f"Bir hata oluştu: {e}")
