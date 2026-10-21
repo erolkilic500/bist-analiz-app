@@ -5,21 +5,27 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
+import uuid
 
 st.set_page_config(page_title="BIST 5dk Scalping & Tarama Paneli", layout="wide")
 
 # ==============================================================================
-# 🔒 KULLANICI GİRİŞİ VE ERİŞİM YÖNETİMİ
+# 🔒 KULLANICI GİRİŞİ VE TEK CİHAZ (EŞ ZAMANLI OTURUM) KONTROLÜ
 # ==============================================================================
-# Arkadaşlarınızı buraya ekleyebilir, şifrelerini değiştirebilir veya 
-# silmek istediğiniz kişinin satırını tamamen kaldırarak erişimini kesebilirsiniz.
 USERS = {
     "bist500erol": "2152039",  # Yönetici (Siz)
-    "hatice": "bist450",    # Arkadaşınızın kullanıcı adı ve şifresi
-    "ismail": "bist4242"     # Arkadaşınızın kullanıcı adı ve şifresi
-    # Yeni arkadaş eklemek için alt alta şu şekilde yazabilirsiniz:
-    # "ahmet": "123456",
+    "arkadas1": "bist123",    # Arkadaşınızın kullanıcı adı ve şifresi
+    "arkadas2": "bist456"     # Arkadaşınızın kullanıcı adı ve şifresi
 }
+
+# Aktif cihaz oturumlarını sunucu hafızasında tutmak için globale kaydediyoruz
+if "ACTIVE_SESSIONS" not in st.session_state:
+    # Tüm kullanıcılar için ortak oturum haritası
+    st.session_state["ACTIVE_SESSIONS"] = st.session_state.get("ACTIVE_SESSIONS", {})
+
+# Mevcut tarayıcı oturumuna özel benzersiz cihaz kimliği üret
+if "device_session_id" not in st.session_state:
+    st.session_state["device_session_id"] = str(uuid.uuid4())
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -37,11 +43,23 @@ def login_form():
         
         if submit_button:
             clean_user = user_input.strip()
+            
+            # 1. Kullanıcı adı ve şifre doğrulaması
             if clean_user in USERS and USERS[clean_user] == pass_input.strip():
-                st.session_state["authenticated"] = True
-                st.session_state["username"] = clean_user
-                st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
-                st.rerun()
+                
+                # 2. Eş zamanlı giriş kontrolü (Aynı anda tek cihaz)
+                active_device = st.session_state["ACTIVE_SESSIONS"].get(clean_user)
+                current_device = st.session_state["device_session_id"]
+                
+                if active_device and active_device != current_device:
+                    st.error("⚠️ Bu kullanıcı adı şu anda başka bir cihazda (PC/Mobil/Tablet) aktif! Aynı anda yalnızca tek cihazdan giriş yapılabilir.")
+                else:
+                    # Giriş başarılı - Bu cihazı kullanıcı için aktif cihaz olarak kaydet
+                    st.session_state["ACTIVE_SESSIONS"][clean_user] = current_device
+                    st.session_state["authenticated"] = True
+                    st.session_state["username"] = clean_user
+                    st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
+                    st.rerun()
             else:
                 st.error("Hatalı kullanıcı adı veya şifre!")
 
@@ -59,6 +77,11 @@ with col_head1:
 with col_head2:
     st.write(f"👤 **Kullanıcı:** `{st.session_state['username']}`")
     if st.button("🚪 Çıkış Yap"):
+        # Oturumu kapatırken aktif cihaz kaydını temizle
+        curr_user = st.session_state["username"]
+        if curr_user in st.session_state["ACTIVE_SESSIONS"]:
+            del st.session_state["ACTIVE_SESSIONS"][curr_user]
+            
         st.session_state["authenticated"] = False
         st.session_state["username"] = ""
         st.rerun()
