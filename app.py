@@ -14,16 +14,25 @@ st.write("Dogrudan Borsa Istanbul verileriyle saf matematiksel ve objektif tekni
 if 'last_searched_ticker' not in st.session_state:
     st.session_state['last_searched_ticker'] = ""
 
-# --- BIST 500 POPÜLER HİSSE LİSTESİ ---
+# --- GENİŞLETİLMİŞ BIST HİSSE LİSTESİ ---
 BIST_500_TICKERS = [
     "AKBNK", "ALARK", "ARCLK", "ASELS", "BIMAS", "DOHOL", "EKGYO", "ENKAI", "EREGL", "FROTO",
     "GARAN", "GUBRF", "HALKB", "HEKTS", "ISCTR", "KCHOL", "KONTR", "KOZAL", "KOZAA", "KRDMD",
     "MGROS", "ODAS", "OYAKC", "PETKM", "PGSUS", "SAHOL", "SASA", "SISE", "SKBNK", "TCELL",
     "THYAO", "TKFEN", "TOASO", "TSKB", "TTKOM", "TUPRS", "VAKBN", "VESTL", "YKBNK", "BERA",
-    "TGSAS", "CANTE", "ASTOR", "EUPWR", "SMRTG", "ALFAS", "KCAER", "MIATK", "REEDR", "ISMEN"
+    "TGSAS", "CANTE", "ASTOR", "EUPWR", "SMRTG", "ALFAS", "KCAER", "MIATK", "REEDR", "ISMEN",
+    "AGHOL", "AHGAZ", "AKFYE", "AKSA", "AKSEN", "ALBRK", "ALGYO", "ALKIM", "ANSGR", "ARASE",
+    "ARDYZ", "ARENA", "AYDEM", "BAGFS", "BANVT", "BIOEN", "BOBET", "BRISA", "BUCIM", "CCOLA",
+    "CEMTS", "CIMSA", "CWENE", "DEVA", "EGEEN", "EGGUB", "ENJSA", "ERCB", "ESEN", "ETILR", 
+    "FONET", "FORMT", "GESAN", "GLYHO", "GWIND", "ICBCT", "IHEVA", "IPEKE", "ISDMR", "ITTFH", 
+    "KARYV", "KFEIN", "KMPUR", "KRPLS", "KRVGD", "KTLEV", "LKMNH", "LOGO", "MAVI", "MEDTR", 
+    "MHRGY", "MPARK", "NTHOL", "OYYAT", "PAKDM", "PCILT", "PENTA", "PNLSN", "PSGYO", "QUAGR", 
+    "RALYH", "RGYAS", "SAYAS", "SDTTR", "SELEC", "SNICA", "SOKM", "TATEN", "TAVHL", "TBORG", 
+    "TMSN", "TRGYO", "TSPOR", "TTRAK", "TURSG", "ULKER", "VAKFN", "VBTYZ", "YATAS", "YEOTK", 
+    "YYAPI", "ZOREN"
 ]
 
-tab1, tab2 = st.tabs(["Tek Hisse Detayli Analiz", "BIST 500 Otomatik Tarayici"])
+tab1, tab2 = st.tabs(["Tek Hisse Detayli Analiz", "BIST Otomatik Tarayici (Top 50)"])
 
 period_options = [
     "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
@@ -262,64 +271,4 @@ with tab1:
                     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
                     fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Mumlar'), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode='lines', name='EMA 20', line=dict(color='orange', width=1.2)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode='lines', name='EMA 50', line=dict(color='dodgerblue', width=1.2)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["macd_line"], mode='lines', name='MACD', line=dict(color='cyan', width=1.5)), row=2, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["signal_line"], mode='lines', name='MACD Sinyal', line=dict(color='magenta', width=1.5)), row=2, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode='lines', name='Stoch %K', line=dict(color='yellow', width=1.5)), row=3, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode='lines', name='Stoch %D', line=dict(color='red', width=1.5)), row=3, col=1)
-                    fig.update_layout(template="plotly_dark", height=700, margin=dict(l=10, r=10, t=30, b=10))
-                    st.plotly_chart(fig, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Hata oluştu: {e}")
-
-# --- SEKME 2: BIST 500 TARAYICI ---
-with tab2:
-    st.subheader("BIST 500 Otomatik Hisse Tarayicisi")
-    st.write("10 Indikator kriterine tam uyan yüksek potansiyelli BIST hisselerini anlık olarak tarar ve siralar.")
-    
-    scan_period_choice = st.selectbox("Tarama Periyodu Seçin", period_options, index=3, key="scan_p")
-    scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
-    
-    min_score_filter = st.slider("Minimum Olumlu Indikator Sayisi (0 - 10)", min_value=1, max_value=10, value=6)
-
-    if st.button("BIST Hisselerini Taramaya Baslat"):
-        scan_results = []
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-
-        for idx, symbol in enumerate(BIST_500_TICKERS):
-            ticker_code = f"{symbol}.IS"
-            status_text.text(f"Taraniyor ({idx+1}/{len(BIST_500_TICKERS)}): {symbol}")
-            progress_bar.progress((idx + 1) / len(BIST_500_TICKERS))
-            
-            try:
-                df = yf.download(ticker_code, period=scan_period, interval=scan_interval, progress=False)
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.get_level_values(0)
-                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
-                
-                res = analyze_df(df)
-                if res and res["total_positive"] >= min_score_filter:
-                    scan_results.append({
-                        "Hisse Kodu": symbol,
-                        "Son Fiyat (TL)": f"{res['last_price']:.2f}",
-                        "Olumlu Indikator": f"{res['total_positive']} / 10",
-                        "Ortalama Puan": f"{res['avg_score']} / 10",
-                        "Sinyal": "🟢 GÜÇLÜ AL" if res["total_positive"] >= 7 else "🟡 BEKLE",
-                        "RSI": res["signals"]["RSI"][0].split("RSI: ")[-1].replace(")", ""),
-                        "EMA Status": "Golden Cross ⭐" if res["signals"]["EMA20/50"][1] == 10 else "Notr/Zayif"
-                    })
-            except:
-                continue
-
-        progress_bar.empty()
-        status_text.empty()
-
-        if scan_results:
-            results_df = pd.DataFrame(scan_results)
-            results_df = results_df.sort_values(by="Olumlu Indikator", ascending=False)
-            st.success(f"Tarama Tamamlandi! Kriterlere uyan {len(results_df)} hisse bulundu.")
-            st.dataframe(results_df, use_container_width=True)
-        else:
-            st.warning("Seçilen kriterlere uyan hisse bulunamadi. Filtre degerini biraz düsürebilirsiniz.")
+                    fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode='lines', name='EMA 5
