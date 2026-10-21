@@ -152,8 +152,8 @@ if st.button("Teknik Analizi Hesapla"):
                     
                     # --- TABLO FORMATINDA ÇIKTI EKRANI ---
                     st.markdown("---")
-                    st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
-                    st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
+                    st.markdown("🕒 `" + current_time + "` &nbsp;|&nbsp; **Alış:** `" + f"{last_price:.2f}" + "` &nbsp;|&nbsp; **TP (%5):** `" + f"{take_profit:.2f}" + "`")
+                    st.markdown("🛑 **Stop-Loss (%1.5):** `" + f"{stop_loss:.2f}" + "`")
                     st.markdown("--------------------------------------------------")
                     
                     c1, c2, c3, c4 = st.columns(4)
@@ -162,27 +162,32 @@ if st.button("Teknik Analizi Hesapla"):
                         st.write(period_choice)
                     with c2:
                         st.write("**Min (SL)**")
-                        st.write(f"`{min_val:.2f}`")
+                        st.write("`" + f"{min_val:.2f}" + "`")
                     with c3:
                         st.write("**Ort**")
-                        st.write(f"`{ort_val:.2f}`")
+                        st.write("`" + f"{ort_val:.2f}" + "`")
                     with c4:
                         st.write("**Max**")
-                        st.write(f"`{max_val:.2f}`")
+                        st.write("`" + f"{max_val:.2f}" + "`")
                         
                     st.markdown("--------------------------------------------------")
                     
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.markdown(f"**MACD** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{macd_signal}`")
-                        st.markdown(f"**EMA20/50** &nbsp;&nbsp;&nbsp; `{ema_signal}`")
-                        st.markdown(f"**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{obv_signal}`")
-                        st.markdown(f"**ATR** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{atr_signal}`")
+                        st.markdown("**MACD** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + macd_signal + "`")
+                        st.markdown("**EMA20/50** &nbsp;&nbsp;&nbsp; `" + ema_signal + "`")
+                        st.markdown("**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + obv_signal + "`")
+                        st.markdown("**ATR** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + atr_signal + "`")
                     with col2:
-                        st.markdown(f"**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{tema_signal}`")
-                        st.markdown(f"**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{vol_signal}`")
-                        st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{stoch_signal}`")
-                        st.markdown(f"**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{bb_signal}`")
+                        st.markdown("**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + tema_signal + "`")
+                        st.markdown("**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + vol_signal + "`")
+                        st.markdown("**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + stoch_signal + "`")
+                        st.markdown("**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + bb_signal + "`")
                         
                     st.markdown("--------------------------------------------------")
-                    st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp
+                    st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `" + str(score) + "/8`")
+                    st.markdown("--------------------------------------------------")
+                    st.caption("⭐ **Not:** Yıldız simgesi, ilgili indikatörde ikili pozitif kesişim (Golden Cross / Yükseliş Onayı) oluştuğunu gösterir.")
+                    
+    except Exception as e:
+        st.error(f"Bir hata oluştu: {e}")
