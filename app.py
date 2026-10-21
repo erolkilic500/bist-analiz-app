@@ -8,28 +8,57 @@ from datetime import datetime
 
 st.set_page_config(page_title="BIST 5dk Scalping & Tarama Paneli", layout="wide")
 
-st.title("BIST Scalping, 10 Indikator Puanlama ve BIST Tarayici Paneli")
+st.title("BIST Scalping, 10 Indikator Puanlama ve BIST 500 Tarayici Paneli")
 st.write("Dogrudan Borsa Istanbul verileriyle saf matematiksel ve objektif teknik analiz!")
 
 if 'last_searched_ticker' not in st.session_state:
     st.session_state['last_searched_ticker'] = ""
 
-# --- GENİŞLETİLMİŞ BIST HİSSE LİSTESİ ---
+# --- BIST 500 / GENİŞ BIST HİSSE LİSTESİ (450+ HİSSE) ---
 BIST_500_TICKERS = [
-    "AKBNK", "ALARK", "ARCLK", "ASELS", "BIMAS", "DOHOL", "EKGYO", "ENKAI", "EREGL", "FROTO",
-    "GARAN", "GUBRF", "HALKB", "HEKTS", "ISCTR", "KCHOL", "KONTR", "KOZAL", "KOZAA", "KRDMD",
-    "MGROS", "ODAS", "OYAKC", "PETKM", "PGSUS", "SAHOL", "SASA", "SISE", "SKBNK", "TCELL",
-    "THYAO", "TKFEN", "TOASO", "TSKB", "TTKOM", "TUPRS", "VAKBN", "VESTL", "YKBNK", "BERA",
-    "TGSAS", "CANTE", "ASTOR", "EUPWR", "SMRTG", "ALFAS", "KCAER", "MIATK", "REEDR", "ISMEN",
-    "AGHOL", "AHGAZ", "AKFYE", "AKSA", "AKSEN", "ALBRK", "ALGYO", "ALKIM", "ANSGR", "ARASE",
-    "ARDYZ", "ARENA", "AYDEM", "BAGFS", "BANVT", "BIOEN", "BOBET", "BRISA", "BUCIM", "CCOLA",
-    "CEMTS", "CIMSA", "CWENE", "DEVA", "EGEEN", "EGGUB", "ENJSA", "ERCB", "ESEN", "ETILR", 
-    "FONET", "FORMT", "GESAN", "GLYHO", "GWIND", "ICBCT", "IHEVA", "IPEKE", "ISDMR", "ITTFH", 
-    "KARYV", "KFEIN", "KMPUR", "KRPLS", "KRVGD", "KTLEV", "LKMNH", "LOGO", "MAVI", "MEDTR", 
-    "MHRGY", "MPARK", "NTHOL", "OYYAT", "PAKDM", "PCILT", "PENTA", "PNLSN", "PSGYO", "QUAGR", 
-    "RALYH", "RGYAS", "SAYAS", "SDTTR", "SELEC", "SNICA", "SOKM", "TATEN", "TAVHL", "TBORG", 
-    "TMSN", "TRGYO", "TSPOR", "TTRAK", "TURSG", "ULKER", "VAKFN", "VBTYZ", "YATAS", "YEOTK", 
-    "YYAPI", "ZOREN"
+    "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
+    "AKBNK", "AKCNS", "AKFGY", "AKFYE", "AKGRT", "AKMGY", "AKSA", "AKSEN", "AKSGY", "AKSUE",
+    "AKTVF", "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", "ALKA", "ALKIM", "ALMAD",
+    "ALTNY", "ALVES", "ANELE", "ANGEN", "ANHYT", "ANSGR", "ARASE", "ARCLK", "ARDYZ", "ARENA",
+    "ARSAN", "ARTMS", "ASELS", "ASGYO", "ASTOR", "ATAKP", "ATATP", "ATEKS", "ATSYO", "AVOD",
+    "AVPGY", "AVTUR", "AYCES", "AYDEM", "AYEN", "AYGAZ", "AZTEK", "BAGFS", "BAKAB", "BALAT",
+    "BANVT", "BARMA", "BASGZ", "BAYRK", "BELEV", "BFREN", "BIENP", "BIGCH", "BIMAS", "BINHO",
+    "BIOEN", "BOBET", "BORAB", "BORSK", "BOSSA", "BRISA", "BRKO", "BRKSN", "BRMEN", "BRSAN",
+    "BRKVY", "BRLSM", "BRMEN", "BSOKE", "BTCIM", "BUCIM", "BURCE", "BURVA", "BVSAN", "BYDNR",
+    "CANTE", "CASA", "CATES", "CCOLA", "CELHA", "CEMAS", "CEMTS", "CMBTN", "CMENT", "CONSE",
+    "COSMO", "CRDFA", "CRFSA", "CUSAN", "CVAKN", "CWENE", "DAGI", "DAPGM", "DARDL", "DGATE",
+    "DGGYO", "DITAS", "DMCOR", "DOAS", "DOBUR", "DOCTA", "DOHOL", "DOKTA", "DURDO", "DYOBY",
+    "DZGYO", "EBEBK", "ECILC", "ECZYT", "EDATA", "EDIP", "EGEEN", "EGGUB", "EGYO", "EKGYO",
+    "EKIZ", "EKSUN", "ELITE", "EMKEL", "ENJSA", "ENKAI", "ENSRI", "EPLAS", "ERCB", "EREGL",
+    "ERSU", "ESCAR", "ESEN", "ETILR", "EUPWR", "EEYHO", "FADE", "FENER", "FLAP", "FMIZP",
+    "FONET", "FORMT", "FORTE", "FRIGO", "FROTO", "FZLGY", "GARAN", "GARFA", "GEDIK", "GEDZA",
+    "GENIL", "GENTS", "GEREL", "GESAN", "GIPTA", "GLBMD", "GLYHO", "GMTAS", "GOKNR", "GOLTS",
+    "GOODY", "GOZDE", "GRNYO", "GRTRK", "GSDHO", "GSDEO", "GUBRF", "GWIND", "GZNMI", "HALKB",
+    "HATEK", "HATSN", "HEKTS", "HKTM", "HOLDR", "HUBVC", "HUNER", "HURGZ", "ICBCT", "ICUGS",
+    "IDGYO", "IEYHO", "IHAAS", "IHEVA", "IHGZT", "IHLGM", "IHLAS", "INGRM", "INTEM", "INVEO",
+    "INVES", "IPEKE", "ISATR", "ISBTR", "ISCTR", "ISDMR", "ISFIN", "ISGSY", "ISGYO", "ISKPL",
+    "ISMEN", "ISSEN", "ITEKS", "ITTFH", "IZENR", "IZINV", "IZMDC", "JANTS", "KAPLM", "KAREL",
+    "KARSN", "KARTN", "KARYV", "KATMR", "KCAER", "KCHOL", "KENT", "KRTEK", "KFEIN", "KGYO",
+    "KIMMR", "KLGYO", "KLMSN", "KLNMA", "KLRZO", "KLSER", "KMPUR", "KNFRT", "KONTR", "KONKA",
+    "KORDS", "KOZAA", "KOZAL", "KRDMD", "KRGYO", "KRONT", "KRPLS", "KRVGD", "KSTUR", "KTLEV",
+    "KUTAŞ", "KUTPO", "KSTUR", "KUYAŞ", "LIDER", "LKMNH", "LOGO", "LUKSK", "MAALT", "MACKO",
+    "MAKIM", "MAKTK", "MANAS", "MARKA", "MAVI", "MEDTR", "MEGAP", "MEGMT", "MEPET", "MERCN",
+    "MERIT", "MERKO", "METRO", "METUR", "MHRGY", "MIATK", "MGROS", "MIPAZ", "MMCAS", "MNDTR",
+    "MOBTL", "MTRKS", "MTRYO", "MZHLD", "NATEN", "NETAS", "NIBAS", "NTHOL", "NUGYO", "NUHCM",
+    "OBAMS", "OBRGY", "ODAS", "OFSYM", "ONCSM", "ORCA", "ORGE", "ORMA", "OSTIM", "OTKAR",
+    "OYAKC", "OYYAT", "OZATD", "OZKGY", "OZRDN", "PAGYO", "PAMEL", "PAPIL", "PARSN", "PASEU",
+    "PENGD", "PENTA", "PETKM", "PETLO", "PETRN", "PGSUS", "PINAR", "PKART", "PKENT", "PLTUR",
+    "PNLSN", "POLHO", "POLTK", "PRDGS", "PRKME", "PRZMA", "PSGYO", "QUAGR", "RALYH", "RAYSG",
+    "REEDR", "RGYAS", "RNPOL", "RODRG", "ROYAL", "RUBNS", "RYGYO", "RYSAS", "SAHOL", "SAMAT",
+    "SANEL", "SANFM", "SANKO", "SARKY", "SASA", "SAYAS", "SDTTR", "SEKFK", "SEKUR", "SELEC",
+    "SELVA", "SEYKM", "SILVR", "SISE", "SKBNK", "SKTAS", "SMART", "SMRTG", "SNAAM", "SNICA",
+    "SNKRN", "SOKM", "SONME", "SRVGY", "SUMAS", "SUNTK", "SURGY", "SUWEN", "TABGD", "TARKM",
+    "TATEN", "TATGD", "TAVHL", "TSEGY", "TBORG", "TCELL", "TDGYO", "TEKTU", "TERA", "TETMT",
+    "TGSAS", "THYAO", "TKFEN", "TKNSA", "TLMAN", "TMSN", "TNZTP", "TOASO", "TRCAS", "TRGYO",
+    "TRILC", "TSKB", "TSPOR", "TTKOM", "TTRAK", "TUCLK", "TUPRS", "TURGG", "TURSG", "UFUK",
+    "ULKER", "ULUFA", "ULAS", "UNLU", "USAK", "VAKBN", "VAKFN", "VAKKO", "VASAT", "VBTYZ",
+    "VERTU", "VERUS", "VESBE", "VESTL", "VKFYO", "VKGYO", "YAPRK", "YATAS", "YAYLA", "YEOTK",
+    "YGGYO", "YGYO", "YKBNK", "YONGA", "YBTAS", "YYAPI", "YYLGD", "ZOREN", "ZRGYO"
 ]
 
 tab1, tab2 = st.tabs(["Tek Hisse Detayli Analiz", "BIST Otomatik Tarayici (Top 50)"])
@@ -69,7 +98,7 @@ def analyze_df(df):
     recent_df = df.tail(20)
     last_price = float(df['Close'].iloc[-1])
     
-    # 1. RSI (Hataya yol açmayacak şekilde güvenli yazım)
+    # 1. RSI
     delta = df['Close'].diff()
     gain_series = delta.where(delta > 0, 0)
     loss_series = -delta.where(delta < 0, 0)
@@ -288,7 +317,7 @@ with tab1:
 # --- SEKME 2: BIST TARAYICI (TOP 50) ---
 with tab2:
     st.subheader("BIST Otomatik Hisse Tarayicisi (Top 50)")
-    st.write("Genişletilmiş BIST hisse havuzunu tarar, puanlarına göre sıralar ve en iyi potansiyele sahip **ilk 50 hisseyi** listeler.")
+    st.write("BIST 500 / Geniş hisse havuzunu (450+ hisse) tarar, en güçlüden aşağı doğru sıralar ve en iyi potansiyele sahip **ilk 50 hisseyi** getirir.")
     
     scan_period_choice = st.selectbox("Tarama Periyodu Seçin", period_options, index=3, key="scan_p")
     scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
@@ -300,10 +329,11 @@ with tab2:
         progress_bar = st.progress(0)
         status_text = st.empty()
 
+        total_symbols = len(BIST_500_TICKERS)
         for idx, symbol in enumerate(BIST_500_TICKERS):
             ticker_code = f"{symbol}.IS"
-            status_text.text(f"Taraniyor ({idx+1}/{len(BIST_500_TICKERS)}): {symbol}")
-            progress_bar.progress((idx + 1) / len(BIST_500_TICKERS))
+            status_text.text(f"Taraniyor ({idx+1}/{total_symbols}): {symbol}")
+            progress_bar.progress((idx + 1) / total_symbols)
             
             try:
                 df = yf.download(ticker_code, period=scan_period, interval=scan_interval, progress=False)
@@ -316,8 +346,8 @@ with tab2:
                     scan_results.append({
                         "Hisse Kodu": symbol,
                         "Son Fiyat (TL)": f"{res['last_price']:.2f}",
-                        "Olumlu Indikator": f"{res['total_positive']} / 10",
-                        "Ortalama Puan": f"{res['avg_score']} / 10",
+                        "Olumlu Indikator": res["total_positive"],
+                        "Ortalama Puan": res["avg_score"],
                         "Sinyal": "🟢 GÜÇLÜ AL" if res["total_positive"] >= 7 else "🟡 BEKLE",
                         "RSI": res["signals"]["RSI"][0].split("RSI: ")[-1].replace(")", ""),
                         "EMA Status": "Golden Cross ⭐" if res["signals"]["EMA20/50"][1] == 10 else "Notr/Zayif"
@@ -330,8 +360,21 @@ with tab2:
 
         if scan_results:
             results_df = pd.DataFrame(scan_results)
-            results_df = results_df.sort_values(by=["Olumlu Indikator", "Ortalama Puan"], ascending=[False, False]).head(50)
-            st.success(f"Tarama Tamamlandi! En yüksek puanlı ilk {len(results_df)} hisse listeleniyor.")
-            st.dataframe(results_df, use_container_width=True)
+            
+            # Olumlu indikatör sayısı ve ortalama puana göre EN GÜÇLÜDEN ZAYIFA DOĞRU SIRALAMA
+            results_df = results_df.sort_values(by=["Olumlu Indikator", "Ortalama Puan"], ascending=[False, False]).reset_index(drop=True)
+            
+            # İlk 50 hisseyi alıyoruz
+            top_50_df = results_df.head(50)
+            
+            # Format düzenleme
+            top_50_df["Olumlu Indikator"] = top_50_df["Olumlu Indikator"].astype(str) + " / 10"
+            top_50_df["Ortalama Puan"] = top_50_df["Ortalama Puan"].astype(str) + " / 10"
+            
+            # Sıralama Numarası Ekleme (1'den 50'ye)
+            top_50_df.index = top_50_df.index + 1
+            
+            st.success(f"Tarama Tamamlandi! Taranan {total_symbols} hisse arasından en güçlü ilk {len(top_50_df)} hisse aşağıda sıralanmıştır.")
+            st.dataframe(top_50_df, use_container_width=True)
         else:
             st.warning("Seçilen kriterlere uyan hisse bulunamadi. Filtre degerini biraz düsürebilirsiniz.")
