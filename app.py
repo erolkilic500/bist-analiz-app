@@ -8,11 +8,17 @@ from datetime import datetime
 
 st.set_page_config(page_title="BIST 5dk Scalping & Tarama Paneli", layout="wide")
 
-st.title("BIST Scalping, 10 Indikator Puanlama ve BIST 500 Tarayici Paneli")
+st.title("BIST Scalping, 10 Indikator Puanlama ve BIST Tarayici Paneli")
 st.write("Dogrudan Borsa Istanbul verileriyle saf matematiksel ve objektif teknik analiz!")
 
 if 'last_searched_ticker' not in st.session_state:
     st.session_state['last_searched_ticker'] = ""
+
+# --- Tarama sonuçlarının kaybolmaması için hafıza (session_state) kontrolü ---
+if 'scan_results_df' not in st.session_state:
+    st.session_state['scan_results_df'] = None
+if 'scan_completed_msg' not in st.session_state:
+    st.session_state['scan_completed_msg'] = ""
 
 # --- BIST 500 / GENİŞ BIST HİSSE LİSTESİ (450+ HİSSE) ---
 BIST_500_TICKERS = [
@@ -360,21 +366,23 @@ with tab2:
 
         if scan_results:
             results_df = pd.DataFrame(scan_results)
-            
-            # Olumlu indikatör sayısı ve ortalama puana göre EN GÜÇLÜDEN ZAYIFA DOĞRU SIRALAMA
             results_df = results_df.sort_values(by=["Olumlu Indikator", "Ortalama Puan"], ascending=[False, False]).reset_index(drop=True)
-            
-            # İlk 50 hisseyi alıyoruz
             top_50_df = results_df.head(50)
-            
-            # Format düzenleme
             top_50_df["Olumlu Indikator"] = top_50_df["Olumlu Indikator"].astype(str) + " / 10"
             top_50_df["Ortalama Puan"] = top_50_df["Ortalama Puan"].astype(str) + " / 10"
-            
-            # Sıralama Numarası Ekleme (1'den 50'ye)
             top_50_df.index = top_50_df.index + 1
             
-            st.success(f"Tarama Tamamlandi! Taranan {total_symbols} hisse arasından en güçlü ilk {len(top_50_df)} hisse aşağıda sıralanmıştır.")
-            st.dataframe(top_50_df, use_container_width=True)
+            # Sonuçları hafızaya kaydediyoruz (yanlışlıkla tıklamalarda kaybolmasın diye)
+            st.session_state['scan_results_df'] = top_50_df
+            st.session_state['scan_completed_msg'] = f"Tarama Tamamlandi! Taranan {total_symbols} hisse arasından en güçlü ilk {len(top_50_df)} hisse aşağıda sıralanmıştır."
         else:
-            st.warning("Seçilen kriterlere uyan hisse bulunamadi. Filtre degerini biraz düsürebilirsiniz.")
+            st.session_state['scan_results_df'] = None
+            st.session_state['scan_completed_msg'] = "Seçilen kriterlere uyan hisse bulunamadi. Filtre degerini biraz düsürebilirsiniz."
+
+    # Hafızada kayıtlı bir sonuç varsa ekranda sürekli göster (sayfa yenilense / başka yere tıklansa bile gitmez)
+    if st.session_state['scan_completed_msg']:
+        if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
+            st.success(st.session_state['scan_completed_msg'])
+            st.dataframe(st.session_state['scan_results_df'], use_container_width=True)
+        else:
+            st.warning(st.session_state['scan_completed_msg'])
