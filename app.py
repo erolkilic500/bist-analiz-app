@@ -18,12 +18,9 @@ USERS = {
     "arkadas2": "bist456"     # Arkadaşınızın kullanıcı adı ve şifresi
 }
 
-# Aktif cihaz oturumlarını sunucu hafızasında tutmak için globale kaydediyoruz
 if "ACTIVE_SESSIONS" not in st.session_state:
-    # Tüm kullanıcılar için ortak oturum haritası
     st.session_state["ACTIVE_SESSIONS"] = st.session_state.get("ACTIVE_SESSIONS", {})
 
-# Mevcut tarayıcı oturumuna özel benzersiz cihaz kimliği üret
 if "device_session_id" not in st.session_state:
     st.session_state["device_session_id"] = str(uuid.uuid4())
 
@@ -43,18 +40,13 @@ def login_form():
         
         if submit_button:
             clean_user = user_input.strip()
-            
-            # 1. Kullanıcı adı ve şifre doğrulaması
             if clean_user in USERS and USERS[clean_user] == pass_input.strip():
-                
-                # 2. Eş zamanlı giriş kontrolü (Aynı anda tek cihaz)
                 active_device = st.session_state["ACTIVE_SESSIONS"].get(clean_user)
                 current_device = st.session_state["device_session_id"]
                 
                 if active_device and active_device != current_device:
                     st.error("⚠️ Bu kullanıcı adı şu anda başka bir cihazda (PC/Mobil/Tablet) aktif! Aynı anda yalnızca tek cihazdan giriş yapılabilir.")
                 else:
-                    # Giriş başarılı - Bu cihazı kullanıcı için aktif cihaz olarak kaydet
                     st.session_state["ACTIVE_SESSIONS"][clean_user] = current_device
                     st.session_state["authenticated"] = True
                     st.session_state["username"] = clean_user
@@ -65,7 +57,7 @@ def login_form():
 
 if not st.session_state["authenticated"]:
     login_form()
-    st.stop()  # Giriş yapılmadığı sürece uygulamanın kalanını çalıştırma!
+    st.stop()
 
 # ==============================================================================
 # 🚀 UYGULAMA ANA KODLARI (Sadece Giriş Yapanlar Görebilir)
@@ -77,7 +69,6 @@ with col_head1:
 with col_head2:
     st.write(f"👤 **Kullanıcı:** `{st.session_state['username']}`")
     if st.button("🚪 Çıkış Yap"):
-        # Oturumu kapatırken aktif cihaz kaydını temizle
         curr_user = st.session_state["username"]
         if curr_user in st.session_state["ACTIVE_SESSIONS"]:
             del st.session_state["ACTIVE_SESSIONS"][curr_user]
@@ -293,11 +284,13 @@ def analyze_df(df):
     signals = [rsi_sig, st_sig, macd_sig, ema_sig, stoch_sig, vol_sig, obv_sig, tema_sig, bb_sig, atr_sig]
     scores = [rsi_score, st_score, stoch_score, macd_score, vol_score, obv_score, ema_score, tema_score, bb_score, atr_score]
     total_positive = sum(1 for s in signals if "[ + ]" in s)
+    total_score_sum = sum(scores)  # 10 indikatörün puanlarının toplamı (Max 100)
     avg_score = round(np.mean(scores), 1)
 
     return {
         "last_price": last_price,
         "total_positive": total_positive,
+        "total_score_sum": total_score_sum,
         "avg_score": avg_score,
         "signals": {
             "RSI": (rsi_sig, rsi_score), "SuperTrend": (st_sig, st_score),
@@ -377,8 +370,11 @@ with tab1:
                         st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {get_status_label(sc)}")
 
                     sinyal_text = "GÜÇLÜ AL" if res["total_positive"] >= 7 else ("BEKLE" if res["total_positive"] >= 5 else "SAT")
+                    
+                    # --- TOPLAM PUAN VE GENEL DURUM ÖZETİ ---
                     st.markdown("--------------------------------------------------")
                     st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Genel Durum :** `{res['total_positive']}/10 Olumlu`")
+                    st.markdown(f"📊 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Ortalama: {res['avg_score']}/10)")
                     st.markdown("--------------------------------------------------")
 
                     # Grafikler
@@ -429,6 +425,7 @@ with tab2:
                         "Hisse Kodu": symbol,
                         "Son Fiyat (TL)": f"{res['last_price']:.2f}",
                         "Olumlu Indikator": res["total_positive"],
+                        "Toplam Puan": res["total_score_sum"],
                         "Ortalama Puan": res["avg_score"],
                         "Sinyal": "🟢 GÜÇLÜ AL" if res["total_positive"] >= 7 else "🟡 BEKLE",
                         "RSI": res["signals"]["RSI"][0].split("RSI: ")[-1].replace(")", ""),
@@ -442,9 +439,10 @@ with tab2:
 
         if scan_results:
             results_df = pd.DataFrame(scan_results)
-            results_df = results_df.sort_values(by=["Olumlu Indikator", "Ortalama Puan"], ascending=[False, False]).reset_index(drop=True)
+            results_df = results_df.sort_values(by=["Olumlu Indikator", "Toplam Puan"], ascending=[False, False]).reset_index(drop=True)
             top_50_df = results_df.head(50)
             top_50_df["Olumlu Indikator"] = top_50_df["Olumlu Indikator"].astype(str) + " / 10"
+            top_50_df["Toplam Puan"] = top_50_df["Toplam Puan"].astype(str) + " / 100 Puan"
             top_50_df["Ortalama Puan"] = top_50_df["Ortalama Puan"].astype(str) + " / 10"
             top_50_df.index = top_50_df.index + 1
             
