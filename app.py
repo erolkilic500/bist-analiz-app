@@ -181,12 +181,4 @@ if st.button("Teknik Analizi Hesapla"):
                     with col2:
                         st.markdown(f"**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{tema_signal}`")
                         st.markdown(f"**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{vol_signal}`")
-                        st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{stoch_signal}`")
-                        st.markdown(f"**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{bb_signal}`")
-                        
-                    st.markdown("--------------------------------------------------")
-                    st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `{score}/8`")
-                    st.markdown("--------------------------------------------------")
-                    
-    except Exception as e:
-        st.error(f"Bir hata oluştu: {e}")
+                        st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&
