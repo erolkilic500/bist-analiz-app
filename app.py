@@ -70,52 +70,67 @@ if st.button("Teknik Analizi Hesapla"):
                     else:
                         last_price = default_yf_price
                     
-                    # --- 8 İNDİKATÖR HESAPLAMA MANTIĞI & KESİŞİM SİMGELERİ ---
+                    # --- 8 İNDİKATÖR HESAPLAMA VE DEĞERLERİ ---
                     
-                    # 1. EMA 20/50 (Golden Cross / Death Cross)
+                    # 1. EMA 20/50
                     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
                     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
-                    if ema20.iloc[-1] > ema50.iloc[-1]:
-                        ema_signal = "[ + ] ⭐"
+                    val_ema20 = float(ema20.iloc[-1])
+                    val_ema50 = float(ema50.iloc[-1])
+                    if val_ema20 > val_ema50:
+                        ema_signal = f"[ + ] ⭐ ({val_ema20:.2f})"
                     else:
-                        ema_signal = "[ - ] ⚠️"
+                        ema_signal = f"[ - ] ⚠️ ({val_ema20:.2f})"
                     
-                    # 2. MACD (Golden Cross / Death Cross)
+                    # 2. MACD
                     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                     macd_line = exp1 - exp2
                     signal_line = macd_line.ewm(span=9, adjust=False).mean()
-                    if macd_line.iloc[-1] > signal_line.iloc[-1]:
-                        macd_signal = "[ + ] ⭐"
+                    val_macd = float(macd_line.iloc[-1])
+                    if val_macd > float(signal_line.iloc[-1]):
+                        macd_signal = f"[ + ] ⭐ ({val_macd:.2f})"
                     else:
-                        macd_signal = "[ - ] ⚠️"
+                        macd_signal = f"[ - ] ⚠️ ({val_macd:.2f})"
                     
                     # 3. TEMA
                     ema1 = df['Close'].ewm(span=9).mean()
                     ema2 = ema1.ewm(span=9).mean()
                     ema3 = ema2.ewm(span=9).mean()
                     tema = 3 * (ema1 - ema2) + ema3
-                    tema_signal = "[ + ]" if df['Close'].iloc[-1] > tema.iloc[-1] else "[ - ]"
+                    val_tema = float(tema.iloc[-1])
+                    if df['Close'].iloc[-1] > val_tema:
+                        tema_signal = f"[ + ] ({val_tema:.2f})"
+                    else:
+                        tema_signal = f"[ - ] ({val_tema:.2f})"
                     
                     # 4. Hacim
-                    vol_current = df['Volume'].iloc[-1]
-                    vol_ma = df['Volume'].rolling(20).mean().iloc[-1]
-                    vol_signal = "[ + ]" if vol_current > vol_ma else "[ - ]"
+                    vol_current = float(df['Volume'].iloc[-1])
+                    vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1])
+                    if vol_current > vol_ma:
+                        vol_signal = f"[ + ] ({vol_current:,.0f})"
+                    else:
+                        vol_signal = f"[ - ] ({vol_current:,.0f})"
                     
                     # 5. OBV
                     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
                     obv_ma = obv.rolling(10).mean()
-                    obv_signal = "[ + ]" if obv.iloc[-1] > obv_ma.iloc[-1] else "[ - ]"
+                    val_obv = float(obv.iloc[-1])
+                    if val_obv > float(obv_ma.iloc[-1]):
+                        obv_signal = f"[ + ] ({val_obv:,.0f})"
+                    else:
+                        obv_signal = f"[ - ] ({val_obv:,.0f})"
                     
-                    # 6. Stochastic (Golden Cross / Death Cross)
+                    # 6. Stochastic
                     low_14 = df['Low'].rolling(14).min()
                     high_14 = df['High'].rolling(14).max()
                     stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
                     stoch_d = stoch_k.rolling(3).mean()
-                    if stoch_k.iloc[-1] > stoch_d.iloc[-1]:
-                        stoch_signal = "[ + ] ⭐"
+                    val_stoch_k = float(stoch_k.iloc[-1])
+                    if val_stoch_k > float(stoch_d.iloc[-1]):
+                        stoch_signal = f"[ + ] ⭐ ({val_stoch_k:.1f})"
                     else:
-                        stoch_signal = "[ - ] ⚠️"
+                        stoch_signal = f"[ - ] ⚠️ ({val_stoch_k:.1f})"
                     
                     # 7. ATR
                     high_low = df['High'] - df['Low']
@@ -123,11 +138,19 @@ if st.button("Teknik Analizi Hesapla"):
                     low_close = np.abs(df['Low'] - df['Close'].shift())
                     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
                     atr = tr.rolling(14).mean()
-                    atr_signal = "[ + ]" if atr.iloc[-1] > atr.rolling(30).mean().iloc[-1] else "[ - ]"
+                    val_atr = float(atr.iloc[-1])
+                    if val_atr > float(atr.rolling(30).mean().iloc[-1]):
+                        atr_signal = f"[ + ] ({val_atr:.2f})"
+                    else:
+                        atr_signal = f"[ - ] ({val_atr:.2f})"
                     
                     # 8. Bollinger Bands (BB)
                     bb_mid = df['Close'].rolling(20).mean()
-                    bb_signal = "[ + ]" if df['Close'].iloc[-1] > bb_mid.iloc[-1] else "[ - ]"
+                    val_bb = float(bb_mid.iloc[-1])
+                    if df['Close'].iloc[-1] > val_bb:
+                        bb_signal = f"[ + ] ({val_bb:.2f})"
+                    else:
+                        bb_signal = f"[ - ] ({val_bb:.2f})"
                     
                     # Skorlama
                     signals = [macd_signal, ema_signal, obv_signal, atr_signal, tema_signal, vol_signal, stoch_signal, bb_signal]
@@ -187,7 +210,7 @@ if st.button("Teknik Analizi Hesapla"):
                     st.markdown("--------------------------------------------------")
                     st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `" + str(score) + "/8`")
                     st.markdown("--------------------------------------------------")
-                    st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir.")
+                    st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir. Parantez içindeki değerler indikatörlerin o anki sayısal değerleridir.")
                     
     except Exception as e:
         st.error(f"Bir hata oluştu: {e}")
