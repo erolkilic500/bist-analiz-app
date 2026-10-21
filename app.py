@@ -70,7 +70,7 @@ if st.button("Teknik Analizi Hesapla"):
                     else:
                         last_price = default_yf_price
                     
-                    # --- 8 İNDİKATÖR HESAPLAMA VE DEĞERLERİ ---
+                    # --- 8 İNDİKATÖR HESAPLAMA VE AÇIKLAMALI DEĞERLERİ ---
                     
                     # 1. EMA 20/50
                     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
@@ -78,9 +78,9 @@ if st.button("Teknik Analizi Hesapla"):
                     val_ema20 = float(ema20.iloc[-1])
                     val_ema50 = float(ema50.iloc[-1])
                     if val_ema20 > val_ema50:
-                        ema_signal = f"[ + ] ⭐ ({val_ema20:.2f})"
+                        ema_signal = f"[ + ] ⭐ (EMA20: {val_ema20:.2f} > EMA50: {val_ema50:.2f})"
                     else:
-                        ema_signal = f"[ - ] ⚠️ ({val_ema20:.2f})"
+                        ema_signal = f"[ - ] ⚠️ (EMA20: {val_ema20:.2f} < EMA50: {val_ema50:.2f})"
                     
                     # 2. MACD
                     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
@@ -88,10 +88,11 @@ if st.button("Teknik Analizi Hesapla"):
                     macd_line = exp1 - exp2
                     signal_line = macd_line.ewm(span=9, adjust=False).mean()
                     val_macd = float(macd_line.iloc[-1])
-                    if val_macd > float(signal_line.iloc[-1]):
-                        macd_signal = f"[ + ] ⭐ ({val_macd:.2f})"
+                    val_sig = float(signal_line.iloc[-1])
+                    if val_macd > val_sig:
+                        macd_signal = f"[ + ] ⭐ (MACD: {val_macd:.2f} > Sinyal: {val_sig:.2f})"
                     else:
-                        macd_signal = f"[ - ] ⚠️ ({val_macd:.2f})"
+                        macd_signal = f"[ - ] ⚠️ (MACD: {val_macd:.2f} < Sinyal: {val_sig:.2f})"
                     
                     # 3. TEMA
                     ema1 = df['Close'].ewm(span=9).mean()
@@ -100,26 +101,27 @@ if st.button("Teknik Analizi Hesapla"):
                     tema = 3 * (ema1 - ema2) + ema3
                     val_tema = float(tema.iloc[-1])
                     if df['Close'].iloc[-1] > val_tema:
-                        tema_signal = f"[ + ] ({val_tema:.2f})"
+                        tema_signal = f"[ + ] (Fiyat > TEMA: {val_tema:.2f})"
                     else:
-                        tema_signal = f"[ - ] ({val_tema:.2f})"
+                        tema_signal = f"[ - ] (Fiyat < TEMA: {val_tema:.2f})"
                     
                     # 4. Hacim
                     vol_current = float(df['Volume'].iloc[-1])
                     vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1])
                     if vol_current > vol_ma:
-                        vol_signal = f"[ + ] ({vol_current:,.0f})"
+                        vol_signal = f"[ + ] (Hacim: {vol_current:,.0f} > Ort)"
                     else:
-                        vol_signal = f"[ - ] ({vol_current:,.0f})"
+                        vol_signal = f"[ - ] (Hacim: {vol_current:,.0f} < Ort)"
                     
                     # 5. OBV
                     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
                     obv_ma = obv.rolling(10).mean()
                     val_obv = float(obv.iloc[-1])
-                    if val_obv > float(obv_ma.iloc[-1]):
-                        obv_signal = f"[ + ] ({val_obv:,.0f})"
+                    val_obv_ma = float(obv_ma.iloc[-1])
+                    if val_obv > val_obv_ma:
+                        obv_signal = f"[ + ] (OBV > OBV Ort)"
                     else:
-                        obv_signal = f"[ - ] ({val_obv:,.0f})"
+                        obv_signal = f"[ - ] (OBV < OBV Ort)"
                     
                     # 6. Stochastic
                     low_14 = df['Low'].rolling(14).min()
@@ -127,10 +129,11 @@ if st.button("Teknik Analizi Hesapla"):
                     stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
                     stoch_d = stoch_k.rolling(3).mean()
                     val_stoch_k = float(stoch_k.iloc[-1])
-                    if val_stoch_k > float(stoch_d.iloc[-1]):
-                        stoch_signal = f"[ + ] ⭐ ({val_stoch_k:.1f})"
+                    val_stoch_d = float(stoch_d.iloc[-1])
+                    if val_stoch_k > val_stoch_d:
+                        stoch_signal = f"[ + ] ⭐ (%K: {val_stoch_k:.1f} > %D: {val_stoch_d:.1f})"
                     else:
-                        stoch_signal = f"[ - ] ⚠️ ({val_stoch_k:.1f})"
+                        stoch_signal = f"[ - ] ⚠️ (%K: {val_stoch_k:.1f} < %D: {val_stoch_d:.1f})"
                     
                     # 7. ATR
                     high_low = df['High'] - df['Low']
@@ -139,18 +142,19 @@ if st.button("Teknik Analizi Hesapla"):
                     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
                     atr = tr.rolling(14).mean()
                     val_atr = float(atr.iloc[-1])
-                    if val_atr > float(atr.rolling(30).mean().iloc[-1]):
-                        atr_signal = f"[ + ] ({val_atr:.2f})"
+                    val_atr_ma = float(atr.rolling(30).mean().iloc[-1])
+                    if val_atr > val_atr_ma:
+                        atr_signal = f"[ + ] (ATR: {val_atr:.2f} > Volatiliteli)"
                     else:
-                        atr_signal = f"[ - ] ({val_atr:.2f})"
+                        atr_signal = f"[ - ] (ATR: {val_atr:.2f} < Durgun)"
                     
                     # 8. Bollinger Bands (BB)
                     bb_mid = df['Close'].rolling(20).mean()
                     val_bb = float(bb_mid.iloc[-1])
                     if df['Close'].iloc[-1] > val_bb:
-                        bb_signal = f"[ + ] ({val_bb:.2f})"
+                        bb_signal = f"[ + ] (Fiyat > BB Orta: {val_bb:.2f})"
                     else:
-                        bb_signal = f"[ - ] ({val_bb:.2f})"
+                        bb_signal = f"[ - ] (Fiyat < BB Orta: {val_bb:.2f})"
                     
                     # Skorlama
                     signals = [macd_signal, ema_signal, obv_signal, atr_signal, tema_signal, vol_signal, stoch_signal, bb_signal]
@@ -195,35 +199,20 @@ if st.button("Teknik Analizi Hesapla"):
                         
                     st.markdown("--------------------------------------------------")
                     
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown("**MACD** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + macd_signal + "`")
-                        st.markdown("**EMA20/50** &nbsp;&nbsp;&nbsp; `" + ema_signal + "`")
-                        st.markdown("**OBV** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + obv_signal + "`")
-                        st.markdown("**ATR** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + atr_signal + "`")
-                    with col2:
-                        st.markdown("**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + tema_signal + "`")
-                        st.markdown("**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + vol_signal + "`")
-                        st.markdown("**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + stoch_signal + "`")
-                        st.markdown("**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + bb_signal + "`")
+                    # Tek sütun üzerinde alt alta net görünüm için düzenleme
+                    st.markdown("**MACD:** `" + macd_signal + "`")
+                    st.markdown("**EMA20/50:** `" + ema_signal + "`")
+                    st.markdown("**TEMA:** `" + tema_signal + "`")
+                    st.markdown("**Stochastic:** `" + stoch_signal + "`")
+                    st.markdown("**Hacim:** `" + vol_signal + "`")
+                    st.markdown("**OBV:** `" + obv_signal + "`")
+                    st.markdown("**ATR:** `" + atr_signal + "`")
+                    st.markdown("**Bollinger (BB):** `" + bb_signal + "`")
                         
                     st.markdown("--------------------------------------------------")
                     st.markdown("**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `" + sinyal_text + "` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Skor :** `" + str(score) + "/8`")
                     st.markdown("--------------------------------------------------")
-                    st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir.")
-                    
-                    # --- EĞİTİM VE İNDİKATÖR ANLAMLARI BÖLÜMÜ ---
-                    with st.expander("📚 İndikatör Değerleri ve Anlamları (Eğitim Rehberi)"):
-                        st.markdown("""
-                        - **EMA20/50 (Üstel Hareketli Ortalama):** 20 periyotluk ortalamanın 50 periyotluk ortalama üzerindeki konumunu ölçer. EMA20'nin EMA50'yi yukarı kesmesi pozitif trend onayıdır.
-                        - **MACD:** Fiyat momentumunu gösterir. Sıfırın üzerinde pozitif kesişim boğa piyasasına, sıfırın altında kalması ise ayı piyasasına işaret eder.
-                        - **TEMA (Üçlü Üstel Ort.):** Gecikmeyi en aza indiren hızlı ortalamadır. Fiyatın TEMA değerinin üzerinde olması kısa vadeli güçlü yükseliş ivmesini gösterir.
-                        - **Hacim (Volume):** Son mummaki işlem adedidir. Hacmin 20 günlük ortalamasının üzerinde olması, gerçekleşen hareketin büyük yatırımcılarca desteklendiğini gösterir.
-                        - **OBV (Denge İşlem Hacmi):** Para giriş-çıkışını ölçer. OBV değerinin ortalamasının üzerine çıkması, hisseye taze para girişi olduğunu gösterir.
-                        - **Stochastic (Oscillator):** 0-100 arasında değer alır. 20 seviyesi altı aşırı satış (fırsat), 80 üzeri aşırı alım bölgesidir. K çizgisinin D çizgisini yukarı kesmesi al sinyalidir.
-                        - **ATR (Ortalama Gerçek Aralık):** Hissenin oynaklığını (volatilitesini) ölçer. ATR değerinin yükselmesi hissede sert hareketlerin yaklaştığını gösterir.
-                        - **BB (Bollinger Bandı Orta Çizgisi):** Hissenin 20 periyotluk basit ortalamasıdır. Fiyatın bant ortasının üzerinde kalması yükseliş trendinin devam ettiğini doğrular.
-                        """)
+                    st.caption("⭐ **Not:** Yıldız simgesi pozitif kesişimi (Golden Cross), ⚠️ simgesi ise negatif kesişimi (Death Cross) gösterir. Parantez içindeki açıklamalar anlık değerlerin karşılaştırma durumunu ifade eder.")
                     
     except Exception as e:
         st.error(f"Bir hata oluştu: {e}")
