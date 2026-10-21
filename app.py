@@ -8,13 +8,63 @@ from datetime import datetime
 
 st.set_page_config(page_title="BIST 5dk Scalping & Tarama Paneli", layout="wide")
 
-st.title("BIST Scalping, 10 Indikator Puanlama ve BIST Tarayici Paneli")
+# ==============================================================================
+# 🔒 KULLANICI GİRİŞİ VE ERİŞİM YÖNETİMİ
+# ==============================================================================
+# İstediğiniz kullanıcı adını ve şifreyi bu sözlüğe (dict) ekleyebilir veya silebilirsiniz.
+USERS = {
+    "bist500erol": "2152039",  # Yönetici (Siz)
+    "arkadas1": "bist123",    # İstediğiniz gibi değiştirebilir veya silebilirsiniz
+    "arkadas2": "bist456"     # İstediğiniz gibi değiştirebilir veya silebilirsiniz
+}
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "username" not in st.session_state:
+    st.session_state["username"] = ""
+
+def login_form():
+    st.title("🔒 BIST Analiz Paneli - Giriş Yap")
+    st.write("Lütfen devam etmek için kullanıcı adı ve şifrenizi giriniz.")
+    
+    with st.form("login_form"):
+        user_input = st.text_input("Kullanıcı Adı")
+        pass_input = st.text_input("Şifre", type="password")
+        submit_button = st.form_submit_button("Giriş Yap")
+        
+        if submit_button:
+            clean_user = user_input.strip()
+            if clean_user in USERS and USERS[clean_user] == pass_input.strip():
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = clean_user
+                st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
+                st.rerun()
+            else:
+                st.error("Hatalı kullanıcı adı veya şifre!")
+
+if not st.session_state["authenticated"]:
+    login_form()
+    st.stop()  # Giriş yapılmadığı sürece uygulamanın kalanını çalıştırma!
+
+# ==============================================================================
+# 🚀 UYGULAMA ANA KODLARI (Sadece Giriş Yapanlar Görebilir)
+# ==============================================================================
+
+col_head1, col_head2 = st.columns([0.8, 0.2])
+with col_head1:
+    st.title("BIST Scalping, 10 Indikator Puanlama ve BIST Tarayici Paneli")
+with col_head2:
+    st.write(f"👤 **Kullanıcı:** `{st.session_state['username']}`")
+    if st.button("🚪 Çıkış Yap"):
+        st.session_state["authenticated"] = False
+        st.session_state["username"] = ""
+        st.rerun()
+
 st.write("Dogrudan Borsa Istanbul verileriyle saf matematiksel ve objektif teknik analiz!")
 
 if 'last_searched_ticker' not in st.session_state:
     st.session_state['last_searched_ticker'] = ""
 
-# --- Tarama sonuçlarının kaybolmaması için hafıza (session_state) kontrolü ---
 if 'scan_results_df' not in st.session_state:
     st.session_state['scan_results_df'] = None
 if 'scan_completed_msg' not in st.session_state:
@@ -372,14 +422,12 @@ with tab2:
             top_50_df["Ortalama Puan"] = top_50_df["Ortalama Puan"].astype(str) + " / 10"
             top_50_df.index = top_50_df.index + 1
             
-            # Sonuçları hafızaya kaydediyoruz (yanlışlıkla tıklamalarda kaybolmasın diye)
             st.session_state['scan_results_df'] = top_50_df
             st.session_state['scan_completed_msg'] = f"Tarama Tamamlandi! Taranan {total_symbols} hisse arasından en güçlü ilk {len(top_50_df)} hisse aşağıda sıralanmıştır."
         else:
             st.session_state['scan_results_df'] = None
             st.session_state['scan_completed_msg'] = "Seçilen kriterlere uyan hisse bulunamadi. Filtre degerini biraz düsürebilirsiniz."
 
-    # Hafızada kayıtlı bir sonuç varsa ekranda sürekli göster (sayfa yenilense / başka yere tıklansa bile gitmez)
     if st.session_state['scan_completed_msg']:
         if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
             st.success(st.session_state['scan_completed_msg'])
