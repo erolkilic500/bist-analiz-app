@@ -129,7 +129,7 @@ if st.button("Teknik Analizi Hesapla"):
                     bb_mid = df['Close'].rolling(20).mean()
                     bb_signal = "[ + ]" if df['Close'].iloc[-1] > bb_mid.iloc[-1] else "[ - ]"
                     
-                    # Skorlama (İçinde '+' geçen tüm sinyalleri sayar)
+                    # Skorlama
                     signals = [macd_signal, ema_signal, obv_signal, atr_signal, tema_signal, vol_signal, stoch_signal, bb_signal]
                     score = sum(1 for s in signals if "[ + ]" in s)
                     
@@ -143,7 +143,7 @@ if st.button("Teknik Analizi Hesapla"):
                     stop_loss = last_price * (1 - 0.015)
                     take_profit = last_price * (1 + 0.05)
                     
-                    # Son seansın (bugünkü mumun) min, max ve ortalama değerleri
+                    # Son seansın min, max ve ortalama değerleri
                     min_val = float(df['Low'].iloc[-1])
                     max_val = float(df['High'].iloc[-1])
                     ort_val = float((df['High'].iloc[-1] + df['Low'].iloc[-1] + df['Close'].iloc[-1]) / 3)
@@ -181,4 +181,8 @@ if st.button("Teknik Analizi Hesapla"):
                     with col2:
                         st.markdown(f"**TEMA** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{tema_signal}`")
                         st.markdown(f"**Hacim** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{vol_signal}`")
-                        st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&
+                        st.markdown(f"**Stoch** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{stoch_signal}`")
+                        st.markdown(f"**BB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{bb_signal}`")
+                        
+                    st.markdown("--------------------------------------------------")
+                    st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp
