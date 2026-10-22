@@ -77,42 +77,11 @@ if 'watchlist' not in st.session_state:
 if 'portfolio' not in st.session_state:
     st.session_state['portfolio'] = ["TGSAS", "AKBNK", "GARAN", "KCHOL"]
 
-# --- SOL KENAR ÇUCUĞU (YÖNETİM PANELİ: HİSSE EKLE / ÇIKAR) ---
-with st.sidebar:
-    st.header("⚙️ Liste Yönetimi")
+col_head1, col_head2 = st.columns([0.8, 0.2])
+with col_head1:
+    st.title("BIST Pro Terminal: Portföy, İzleme & Analiz Paneli")
+with col_head2:
     st.write(f"👤 `{st.session_state['username']}`")
-    
-    st.markdown("---")
-    st.subheader("📌 İzleme Listesi Yönetimi")
-    new_w_stock = st.text_input("İzlemeye Ekle (Hisse Kodu)").upper().strip()
-    if st.button("İzleme Listesine Ekle"):
-        if new_w_stock and new_w_stock not in st.session_state['watchlist']:
-            st.session_state['watchlist'].append(new_w_stock)
-            st.success(f"{new_w_stock} eklendi!")
-            st.rerun()
-
-    rem_w_stock = st.selectbox("İzlemeden Çıkar", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w")
-    if st.button("İzlemeden Sil") and rem_w_stock != "Seçiniz...":
-        st.session_state['watchlist'].remove(rem_w_stock)
-        st.success(f"{rem_w_stock} çıkarıldı!")
-        st.rerun()
-
-    st.markdown("---")
-    st.subheader("💼 Portföy Yönetimi")
-    new_p_stock = st.text_input("Portföye Ekle (Hisse Kodu)").upper().strip()
-    if st.button("Portföye Ekle"):
-        if new_p_stock and new_p_stock not in st.session_state['portfolio']:
-            st.session_state['portfolio'].append(new_p_stock)
-            st.success(f"{new_p_stock} portföye eklendi!")
-            st.rerun()
-
-    rem_p_stock = st.selectbox("Portföyden Çıkar", ["Seçiniz..."] + st.session_state['portfolio'], key="rem_p")
-    if st.button("Portföyden Sil") and rem_p_stock != "Seçiniz...":
-        st.session_state['portfolio'].remove(rem_p_stock)
-        st.success(f"{rem_p_stock} portföyden çıkarıldı!")
-        st.rerun()
-
-    st.markdown("---")
     if st.button("🚪 Çıkış Yap"):
         curr_user = st.session_state["username"]
         if curr_user in st.session_state["ACTIVE_SESSIONS"]:
@@ -121,9 +90,7 @@ with st.sidebar:
         st.session_state["username"] = ""
         st.rerun()
 
-# Üst Başlık
-st.title("BIST Pro Terminal: Portföy, İzleme & Analiz Paneli")
-st.write("İzleme listenizi ve portföyünüzü sol menüden yönetebilir, anlık periyot değişimiyle analiz edebilirsiniz.")
+st.write("İzleme listenizi ve portföyünüzü doğrudan ilgili sekmelerden yönetebilir, anlık periyot değişimiyle analiz edebilirsiniz.")
 
 BIST_500_TICKERS = [
     "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
@@ -431,8 +398,25 @@ with tab1:
 # --- TAB 2: İZLEME LİSTEM ---
 with tab2:
     st.subheader("📌 Takip Ettiğim Hisse Listesi")
-    st.write("Analiz etmek istediğiniz hisseye tıklayın:")
     
+    # Doğrudan sekme içinde ekleme ve çıkarma aracı
+    with st.expander("➕ İzleme Listesine Yeni Hisse Ekle / Çıkar"):
+        col_ew1, col_ew2 = st.columns(2)
+        with col_ew1:
+            new_w = st.text_input("Eklenecek Hisse Kodu").upper().strip()
+            if st.button("Listeye Ekle"):
+                if new_w and new_w not in st.session_state['watchlist']:
+                    st.session_state['watchlist'].append(new_w)
+                    st.success(f"{new_w} eklendi!")
+                    st.rerun()
+        with col_ew2:
+            rem_w = st.selectbox("Listeden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w_tab")
+            if st.button("Seçileni Sil") and rem_w != "Seçiniz...":
+                st.session_state['watchlist'].remove(rem_w)
+                st.success(f"{rem_w} çıkarıldı!")
+                st.rerun()
+
+    st.write("Analiz etmek istediğiniz hisseye tıklayın:")
     cols = st.columns(3)
     for idx, symbol in enumerate(st.session_state['watchlist']):
         with cols[idx % 3]:
@@ -441,14 +425,30 @@ with tab2:
                 st.session_state['selected_ticker'] = symbol
 
     if st.session_state.get('selected_ticker') and st.session_state['selected_ticker'] in st.session_state['watchlist']:
-        st.markdown("---")
         render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab2")
 
 # --- TAB 3: PORTFÖYÜM ---
 with tab3:
     st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
-    st.write("Elinizdeki hissenin üzerine tıklayın:")
     
+    # Doğrudan sekme içinde ekleme ve çıkarma aracı
+    with st.expander("➕ Portföye Yeni Hisse Ekle / Çıkar"):
+        col_ep1, col_ep2 = st.columns(2)
+        with col_ep1:
+            new_p = st.text_input("Portföye Eklenecek Hisse Kodu").upper().strip()
+            if st.button("Portföye Ekle"):
+                if new_p and new_p not in st.session_state['portfolio']:
+                    st.session_state['portfolio'].append(new_p)
+                    st.success(f"{new_p} portföye eklendi!")
+                    st.rerun()
+        with col_ep2:
+            rem_p = st.selectbox("Portföyden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['portfolio'], key="rem_p_tab")
+            if st.button("Portföyden Sil") and rem_p != "Seçiniz...":
+                st.session_state['portfolio'].remove(rem_p)
+                st.success(f"{rem_p} portföyden çıkarıldı!")
+                st.rerun()
+
+    st.write("Elinizdeki hissenin üzerine tıklayın:")
     cols_p = st.columns(3)
     for idx, symbol in enumerate(st.session_state['portfolio']):
         with cols_p[idx % 3]:
@@ -457,7 +457,6 @@ with tab3:
                 st.session_state['selected_ticker'] = symbol
 
     if st.session_state.get('selected_ticker') and st.session_state['selected_ticker'] in st.session_state['portfolio']:
-        st.markdown("---")
         render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab3")
 
 # --- TAB 4: BIST TARAYICI ---
