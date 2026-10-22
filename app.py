@@ -77,7 +77,7 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("İzleme listenizi ve elinizdeki hisseleri anlık takip edin, tek tıkla tüm teknik indikatör kartlarını görüntüleyin.")
+st.write("İzleme listenizi ve elinizdeki hisseleri anlık takip edin, tek tıkla tüm indikatör kartlarını ve sistem yorumunu görüntüleyin.")
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -258,6 +258,16 @@ def analyze_df(df):
     else:
         action_signal = "🟠 RİSKLİ / BEKLE"
 
+    comment = f"Hisse {total_score_sum}/100 teknik puana sahiptir. "
+    if "AL" in action_signal:
+        comment += "Teknik göstergeler momentumun alıcılar lehine döndüğünü gösteriyor. Stop-Loss seviyesine dikkat edilerek değerlendirilebilir."
+    elif "SAT" in action_signal:
+        comment += "Aşırı satım veya trend bozulması emareleri var. Yeni alım riski yüksek, kar realizasyonu düşünülebilir."
+    elif "TUZAĞI" in action_signal:
+        comment += "Hacim ve gösterge uyumsuzluğu mevcut. Yalancı kırılımlara karşı temkinli olunmalı."
+    else:
+        comment += "İndikatörler yatay/kararsız bir seyir gösteriyor. Net bir kırılım beklenmeli."
+
     return {
         "last_price": last_price,
         "total_positive": total_positive,
@@ -265,6 +275,7 @@ def analyze_df(df):
         "avg_score": avg_score,
         "action_signal": action_signal,
         "gap_status": gap_status,
+        "comment": comment,
         "signals": {
             "RSI": (rsi_sig, rsi_score), "SuperTrend": (st_sig, st_score),
             "Stochastic": (stoch_sig, stoch_score), "MACD": (macd_sig, macd_score),
@@ -284,7 +295,6 @@ def get_status_label(score):
     else: return "🔴 **[Zayıf / Riskli]**"
 
 def render_stock_analysis(ticker_code, manual_price_input=""):
-    """Görseldeki İndikatör Kartları ve Puanlama Tasarımını Birebir Oluşturan Fonksiyon"""
     clean_ticker = ticker_code.strip().upper()
     if not clean_ticker.endswith(".IS"):
         clean_ticker += ".IS"
@@ -319,7 +329,7 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}` &nbsp;|&nbsp; **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("--------------------------------------------------")
 
-                # FOTOĞRAFTAKİ İNDİKATÖR KARTLARI TASARIMI
+                # İndikatör Kartları
                 for name, (sig, sc) in res["signals"].items():
                     color_icon = "🟢" if sc >= 7 else ("🟡" if sc >= 5 else "🔴")
                     st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {color_icon} {get_status_label(sc)}")
@@ -328,6 +338,9 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 st.markdown("--------------------------------------------------")
                 st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{res['action_signal']}`")
                 st.markdown(f"📈 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Genel Durum: {res['total_positive']}/10 Olumlu)")
+                
+                # SİSTEM VE YAZILIM YORUMU (Eksik olan kısım eklendi)
+                st.info(f"🤖 **SİSTEM VE YAZILIM YORUMU:** {res['comment']}")
                 st.markdown("--------------------------------------------------")
 
                 st.subheader("📰 Son Haber Akışı")
@@ -340,7 +353,7 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 else:
                     st.write("Son günlerde özel bir haber akışı bulunamadı.")
 
-                # Grafikler
+                # Grafikler (Çakışmayı önlemek için benzersiz key eklendi)
                 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
                 fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
@@ -350,7 +363,9 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
                 fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
-                st.plotly_chart(fig, use_container_width=True)
+                
+                # Benzersiz key ile çakışma hatası tamamen çözüldü
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{clean_ticker}")
 
     except Exception as e:
         st.error(f"Hata oluştu: {e}")
