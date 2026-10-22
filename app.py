@@ -60,7 +60,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI VE GÜNCELLENMİŞ VARSAYILAN LİSTELER
+# 🚀 UYGULAMA ANA KODLARI VE GÜNCELLENMİŞ LİSTELER
 # ==============================================================================
 
 if 'selected_ticker' not in st.session_state:
@@ -71,11 +71,9 @@ if 'scan_results_df' not in st.session_state:
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
 
-# İzleme listeniz
 if 'watchlist' not in st.session_state:
     st.session_state['watchlist'] = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
 
-# Portföyünüz (Görselde yer alan TGSAS, AKBNK, GARAN, KCHOL ve güncel yapı)
 if 'portfolio' not in st.session_state:
     st.session_state['portfolio'] = {
         "TGSAS": {"cost": 120.00, "lots": 100},
@@ -149,6 +147,33 @@ def analyze_df(df):
         gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif)"
     elif curr_open < prev_low:
         gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
+
+    # Alıcı / Satıcı Hacim Baskısı Hesaplama (Son mum ve genel eğilim)
+    total_vol = float(df['Volume'].sum())
+    total_tl_vol = float((df['Close'] * df['Volume']).sum())
+    
+    # Fiyat değişim yönüne göre hacim ağırlıklı alıcı/satıcı dağılımı
+    price_diff = df['Close'].diff().fillna(0)
+    buying_vol = float(df['Volume'][price_diff >= 0].sum())
+    selling_vol = float(df['Volume'][price_diff < 0].sum())
+    
+    if total_vol > 0:
+        buyer_pct = (buying_vol / total_vol) * 100
+        seller_pct = (selling_vol / total_vol) * 100
+    else:
+        buyer_pct, seller_pct = 50.0, 50.0
+
+    buyer_tl = total_tl_vol * (buyer_pct / 100)
+    seller_tl = total_tl_vol * (seller_pct / 100)
+
+    if buyer_pct > 55:
+        pressure_status = "🟢 GÜÇLÜ ALICI BASKISI (Para Girişi Var)"
+    elif buyer_pct > 50:
+        pressure_status = "🟢 HAFİF ALICILI (Dengeli / Pozitif)"
+    elif seller_pct > 55:
+        pressure_status = "🔴 GÜÇLÜ SATICI BASKISI (Para Çıkışı Var)"
+    else:
+        pressure_status = "🟡 HAFİF SATICILI (Dengeli / Negatif)"
 
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(14).mean()
@@ -275,6 +300,13 @@ def analyze_df(df):
         "action_signal": action_signal,
         "gap_status": gap_status,
         "comment": comment,
+        "pressure_status": pressure_status,
+        "buyer_pct": buyer_pct,
+        "seller_pct": seller_pct,
+        "buying_vol": buying_vol,
+        "selling_vol": selling_vol,
+        "buyer_tl": buyer_tl,
+        "seller_tl": seller_tl,
         "signals": {
             "RSI": (rsi_sig, rsi_score), "SuperTrend": (st_sig, st_score),
             "Stochastic": (stoch_sig, stoch_score), "MACD": (macd_sig, macd_score),
@@ -351,6 +383,12 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                     st.markdown("")
 
                 st.markdown("--------------------------------------------------")
+                # Alıcı / Satıcı Baskı ve Hacim Paneli
+                st.markdown(f"⚖️ **PİYASA ALIM / SATIM BASKISI & HACİM ANALİZİ:** `{res['pressure_status']}`")
+                st.markdown(f"🟢 **Alıcılar:** `%{res['buyer_pct']:.1f}` &nbsp; | &nbsp; **Lot:** `{res['buying_vol']:,.0f}` &nbsp; | &nbsp; **Hacim:** `₺{res['buyer_tl']:,.2f}`")
+                st.markdown(f"🔴 **Satıcılar:** `%{res['seller_pct']:.1f}` &nbsp; | &nbsp; **Lot:** `{res['selling_vol']:,.0f}` &nbsp; | &nbsp; **Hacim:** `₺{res['seller_tl']:,.2f}`")
+                st.markdown("--------------------------------------------------")
+
                 st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{res['action_signal']}`")
                 st.markdown(f"📈 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Genel Durum: {res['total_positive']}/10 Olumlu)")
                 
