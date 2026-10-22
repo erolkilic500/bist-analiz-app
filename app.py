@@ -30,13 +30,13 @@ if "username" not in st.session_state:
     st.session_state["username"] = ""
 
 def login_form():
-    st.title("🔒 BIST Pro Terminal - Giriş Yap")
-    st.write("Lütfen devam etmek için kullanıcı adı ve şifrenizi giriniz.")
+    st.title("BIST Pro Terminal - Giris Yap")
+    st.write("Lutfen devam etmek icin kullanici adi ve sifrenizi giriniz.")
     
     with st.form("login_form"):
-        user_input = st.text_input("Kullanıcı Adı")
-        pass_input = st.text_input("Şifre", type="password")
-        submit_button = st.form_submit_button("Giriş Yap")
+        user_input = st.text_input("Kullanici Adi")
+        pass_input = st.text_input("Sifre", type="password")
+        submit_button = st.form_submit_button("Giris Yap")
         
         if submit_button:
             clean_user = user_input.strip()
@@ -45,15 +45,15 @@ def login_form():
                 current_device = st.session_state["device_session_id"]
                 
                 if active_device and active_device != current_device:
-                    st.error("⚠️ Bu kullanıcı adı şu anda başka bir cihazda aktif! Aynı anda yalnızca tek cihazdan giriş yapılabilir.")
+                    st.error("Bu kullanici adi su anda baska bir cihazda aktif! Ayni anda yalnizca tek cihazdan giris yapilabilir.")
                 else:
                     st.session_state["ACTIVE_SESSIONS"][clean_user] = current_device
                     st.session_state["authenticated"] = True
                     st.session_state["username"] = clean_user
-                    st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
+                    st.success("Giris basarili! Yonlendiriliyorsunuz...")
                     st.rerun()
             else:
-                st.error("Hatalı kullanıcı adı veya şifre!")
+                st.error("Hatali kullanici adi veya sifre!")
 
 if not st.session_state["authenticated"]:
     login_form()
@@ -65,10 +65,10 @@ if not st.session_state["authenticated"]:
 
 col_head1, col_head2 = st.columns([0.8, 0.2])
 with col_head1:
-    st.title("BIST Pro Terminal: Portföy, İzleme & Analiz Paneli")
+    st.title("BIST Pro Terminal: Portfoy, Izleme & Analiz Paneli")
 with col_head2:
-    st.write(f"👤 **Kullanıcı:** `{st.session_state['username']}`")
-    if st.button("🚪 Çıkış Yap"):
+    st.write(f"Kullanici: `{st.session_state['username']}`")
+    if st.button("Cikis Yap"):
         curr_user = st.session_state["username"]
         if curr_user in st.session_state["ACTIVE_SESSIONS"]:
             del st.session_state["ACTIVE_SESSIONS"][curr_user]
@@ -77,10 +77,10 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("İzleme listenizi ve elinizdeki hisseleri anlık takip edin, tek tıkla detaylı analize geçin!")
+st.write("Izleme listenizi ve elinizdeki hisseleri anlik takip edin, tek tikla detayli analize gecin!")
 
 if 'selected_tab_radio' not in st.session_state:
-    st.session_state['selected_tab_radio'] = "🔍 Tek Hisse Detaylı Analiz & Haberler"
+    st.session_state['selected_tab_radio'] = "Tek Hisse Detayli Analiz & Haberler"
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -108,18 +108,18 @@ BIST_500_TICKERS = [
 ]
 
 tabs = [
-    "🔍 Tek Hisse Detaylı Analiz & Haberler", 
-    "📌 İzleme Listem", 
-    "💼 Portföyüm (Aldığım Hisseler)", 
-    "🚀 BIST Otomatik Tarayıcı (Top 50)"
+    "Tek Hisse Detayli Analiz & Haberler", 
+    "Izleme Listem", 
+    "Portfoyum (Aldigim Hisseler)", 
+    "BIST Otomatik Tarayici (Top 50)"
 ]
 
-selected_tab = st.radio("Sayfa Seçiniz:", tabs, key="selected_tab_radio", horizontal=True)
+selected_tab = st.radio("Sayfa Seciniz:", tabs, key="selected_tab_radio", horizontal=True)
 
 period_options = [
     "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
     "1 Saat", "2 Saat", "3 Saat", "4 Saat",
-    "1 Günlük", "1 Haftalık", "1 Aylık", "3 Aylık", "6 Aylık", "1 Yıllık"
+    "1 Gunluk", "1 Haftalik", "1 Aylik", "3 Aylik", "6 Aylik", "1 Yillik"
 ]
 
 interval_map = {
@@ -127,8 +127,8 @@ interval_map = {
     "5 Dakika": ("5m", "1mo"), "10 Dakika": ("5m", "1mo"), "15 Dakika": ("15m", "1mo"),
     "30 Dakika": ("30m", "3mo"), "45 Dakika": ("15m", "3mo"), "1 Saat": ("1h", "6mo"),
     "2 Saat": ("1h", "1y"), "3 Saat": ("1h", "1y"), "4 Saat": ("1h", "2y"),
-    "1 Günlük": ("1d", "2y"), "1 Haftalık": ("1wk", "5y"), "1 Aylık": ("1mo", "10y"),
-    "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
+    "1 Gunluk": ("1d", "2y"), "1 Haftalik": ("1wk", "5y"), "1 Aylik": ("1mo", "10y"),
+    "3 Aylik": ("3mo", "max"), "6 Aylik": ("3mo", "max"), "1 Yillik": ("3mo", "max")
 }
 
 def analyze_df(df):
@@ -142,11 +142,11 @@ def analyze_df(df):
     prev_low = float(df['Low'].iloc[-2])
     curr_open = float(df['Open'].iloc[-1])
     
-    gap_status = "Normal Açılış"
+    gap_status = "Normal Acilis"
     if curr_open > prev_high:
-        gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif)"
+        gap_status = "Yukari GAP (Bosluklu Pozitif)"
     elif curr_open < prev_low:
-        gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
+        gap_status = "Asagi GAP (Bosluklu Negatif)"
 
     # 1. RSI
     delta = df['Close'].diff()
@@ -159,16 +159,16 @@ def analyze_df(df):
     if 40 <= val_rsi <= 70:
         rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
     elif val_rsi < 30:
-        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip Adayı)", 8
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip Adayi)", 8
     elif val_rsi > 70:
-        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f} Aşırı Alım)", 4
+        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f} Asiri Alim)", 4
     else:
         rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 5
 
     # 2. SuperTrend
     hl2 = (df['High'] + df['Low']) / 2
     st_trend = df['Close'].iloc[-1] > float(hl2.iloc[-1])
-    st_sig, st_score = ("[ + ] (Yükseliş Trendi)", 10) if st_trend else ("[ - ] (Düşüş Trendi)", 2)
+    st_sig, st_score = ("[ + ] (Yukselis Trendi)", 10) if st_trend else ("[ - ] (Dusus Trendi)", 2)
 
     # 3. Stochastic
     low_14 = df['Low'].rolling(14).min()
@@ -243,14 +243,229 @@ def analyze_df(df):
     total_score_sum = sum(scores)
     avg_score = round(np.mean(scores), 1)
 
-    action_signal = "NÖTR"
+    action_signal = "NOTR"
     if val_rsi < 35 and stoch_cross_up:
-        action_signal = "🚀 DİPTEN AL (Dip Dönüşü)"
+        action_signal = "DIPTEN AL (Dip Donusu)"
     elif val_rsi > 72 and stoch_cross_down:
-        action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Alım)"
+        action_signal = "TAVANDAN SAT / KAR AL (Asiri Alim)"
     elif last_price > val_bb and not vol_high and val_macd < val_sig:
-        action_signal = "🪤 BOĞA TUZAĞI (Düşük Hacim)"
+        action_signal = "BOGA TUZAGI (Dusuk Hacim)"
     elif last_price < val_bb and val_rsi < 35 and vol_high and stoch_cross_up:
-        action_signal = "🐻 AYI TUZAĞI (Silkeleme)"
+        action_signal = "AYI TUZAGI (Silkeleme)"
     elif val_ema20 > val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_up:
-        action_signal = "📈 ARA AL (Düzeltme Alımı
+        action_signal = "ARA AL (Duzeltme Alimi)"
+    elif val_ema20 < val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_down:
+        action_signal = "ARA SAT (Tepki Satisi)"
+    elif total_positive >= 8 and total_score_sum >= 75:
+        action_signal = "NET AL (Guclu Yukselis)"
+    elif total_positive <= 3 or total_score_sum <= 40:
+        action_signal = "NET SAT (Dusus Trendi)"
+    elif total_positive >= 5:
+        action_signal = "BEKLE / IZLE (Notr-Olumlu)"
+    else:
+        action_signal = "RISKLI / BEKLE"
+
+    comment = f"Hisse {total_score_sum}/100 teknik puana sahiptir. "
+    if "AL" in action_signal:
+        comment += "Teknik gostergeler momentumun alicilar lehine döndugunu gosteriyor. Stop-Loss seviyesine dikkat edilerek degerlendirilebilir."
+    elif "SAT" in action_signal:
+        comment += "Asiri satim veya trend bozulmasi emareleri var. Yeni alim riski yuksek, kar realizasyonu dusunulebilir."
+    elif "TUZAGI" in action_signal:
+        comment += "Hacim ve gosterge uyumsuzlugu mevcut. Yalanci kirilimlara karsi temkinli olunmali."
+    else:
+        comment += "Indikatorler yatay/kararsiz bir seyir gosteriyor. Net bir kirilim beklenmeli."
+
+    return {
+        "last_price": last_price,
+        "total_positive": total_positive,
+        "total_score_sum": total_score_sum,
+        "avg_score": avg_score,
+        "action_signal": action_signal,
+        "gap_status": gap_status,
+        "comment": comment,
+        "signals": {
+            "RSI": (rsi_sig, rsi_score), "SuperTrend": (st_sig, st_score),
+            "Stochastic": (stoch_sig, stoch_score), "MACD": (macd_sig, macd_score),
+            "Hacim": (vol_sig, vol_score), "OBV": (obv_sig, obv_score),
+            "EMA20/50": (ema_sig, ema_score), "TEMA": (tema_sig, tema_score),
+            "Bollinger": (bb_sig, bb_score), "ATR": (atr_sig, atr_score)
+        },
+        "recent_df": recent_df, "ema20": ema20, "ema50": ema50, "tema": tema,
+        "macd_line": macd_line, "signal_line": signal_line,
+        "stoch_k": stoch_k, "stoch_d": stoch_d
+    }
+
+# --- 1. TEK HİSSE ANALİZİ VE HABERLER ---
+if selected_tab == "Tek Hisse Detayli Analiz & Haberler":
+    col_t, col_m = st.columns(2)
+    with col_t:
+        ticker_input = st.text_input("Hisse Kodu Girin", value=st.session_state['selected_ticker'].replace(".IS", ""))
+    with col_m:
+        manual_price_str = st.text_input("Ziraat Canli Fiyat", value="")
+
+    clean_ticker = ticker_input.strip().upper()
+    if not clean_ticker.endswith(".IS"):
+        clean_ticker += ".IS"
+
+    period_choice = st.selectbox("Periyot Secin", period_options, index=3)
+    interval, period = interval_map.get(period_choice, ("5m", "1mo"))
+
+    if st.button("Teknik, GAP & Haber Analizini Baslat") or st.session_state.get('auto_run', False):
+        st.session_state['auto_run'] = False
+        try:
+            with st.spinner(f"{clean_ticker} verileri indiriliyor..."):
+                t_obj = yf.Ticker(clean_ticker)
+                news_list = t_obj.news
+
+                df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
+                
+                res = analyze_df(df)
+                if not res:
+                    st.error("Yeterli teknik veri bulunamadi.")
+                else:
+                    last_price = res["last_price"]
+                    try:
+                        if manual_price_str.strip() != "":
+                            manual_price = float(manual_price_str.replace(",", "."))
+                            if manual_price > 0:
+                                last_price = manual_price
+                    except:
+                        pass
+
+                    stop_loss = last_price * (1 - 0.015)
+                    take_profit = last_price * (1 + 0.05)
+                    current_time = datetime.now().strftime("%H:%M")
+
+                    st.markdown("---")
+                    st.markdown(f"Saat: `{current_time}` | Hisse: `{clean_ticker}` | Alis: `{last_price:.2f}` | TP (%5): `{take_profit:.2f}`")
+                    st.markdown(f"Stop-Loss (%1.5): `{stop_loss:.2f}` | GAP Durumu: `{res['gap_status']}`")
+                    st.markdown("--------------------------------------------------")
+
+                    st.markdown(f"OZEL SINYAL & AKSIYON: `{res['action_signal']}`")
+                    st.markdown(f"TOPLAM TEKNİK PUAN: `{res['total_score_sum']} / 100 Puan` ({res['total_positive']}/10 Olumlu)")
+                    st.info(f"SİSTEM VE YAZILIM YORUMU: {res['comment']}")
+                    st.markdown("--------------------------------------------------")
+
+                    # Haberler
+                    st.subheader("Hisseyle Ilgili Son Haberler")
+                    if news_list:
+                        for n in news_list[:4]:
+                            title_txt = n.get('title', 'Baslik Yok')
+                            publisher_txt = n.get('publisher', 'Haber')
+                            link_txt = n.get('link', '#')
+                            st.markdown(f"- [{publisher_txt}] [{title_txt}]({link_txt})")
+                    else:
+                        st.write("Son gunlerde ozel bir haber akisi bulunamadi.")
+
+                    # Grafikler
+                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
+                    
+                    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode="lines", name="EMA 50", line=dict(color="dodgerblue", width=1.2)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=res["macd_line"], mode="lines", name="MACD", line=dict(color="cyan", width=1.5)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=res["signal_line"], mode="lines", name="MACD Sinyal", line=dict(color="magenta", width=1.5)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
+                    
+                    fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
+                    st.plotly_chart(fig, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Hata olustu: {e}")
+
+# --- 2. İZLEME LİSTEM ---
+elif selected_tab == "Izleme Listem":
+    st.subheader("Takip Ettigim Hisse Listesi")
+    st.write("Asagidaki listeden dilediginiz hisseye basarak aninda detayli analizine gecebilirsiniz.")
+    
+    cols = st.columns(3)
+    for idx, symbol in enumerate(WATCHLIST):
+        with cols[idx % 3]:
+            st.markdown(f"### {symbol}")
+            if st.button(f"{symbol} Analiz Et", key=f"watch_{symbol}"):
+                st.session_state['selected_ticker'] = symbol
+                st.session_state['selected_tab_radio'] = "Tek Hisse Detayli Analiz & Haberler"
+                st.session_state['auto_run'] = True
+                st.rerun()
+
+# --- 3. PORTFÖYÜM ---
+elif selected_tab == "Portfoyum (Aldigim Hisseler)":
+    st.subheader("Portfoyumdeki (Aldigim) Hisseler")
+    st.write("Elinizde bulunan hisselerin anlik teknik durumunu incelemek icin tiklayin.")
+    
+    cols_p = st.columns(3)
+    for idx, symbol in enumerate(PORTFOLIO):
+        with cols_p[idx % 3]:
+            st.markdown(f"### {symbol}")
+            if st.button(f"{symbol} Detay & Haberler", key=f"port_{symbol}"):
+                st.session_state['selected_ticker'] = symbol
+                st.session_state['selected_tab_radio'] = "Tek Hisse Detayli Analiz & Haberler"
+                st.session_state['auto_run'] = True
+                st.rerun()
+
+# --- 4. BIST TARAYICI ---
+elif selected_tab == "BIST Otomatik Tarayici (Top 50)":
+    st.subheader("BIST Otomatik Hisse Tarayicisi (Top 50)")
+    st.write("BIST havuzunu tarar; aksiyon sinyallerini ve teknik puanlari listeler.")
+    
+    scan_period_choice = st.selectbox("Tarama Periyodu Secin", period_options, index=3, key="scan_p")
+    scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
+    min_score_filter = st.slider("Minimum Olumlu Indikator Sayisi", min_value=1, max_value=10, value=5)
+
+    if st.button("BIST Hisselerini Taramaya Baslat"):
+        scan_results = []
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        total_symbols = len(BIST_500_TICKERS)
+        for idx, symbol in enumerate(BIST_500_TICKERS):
+            ticker_code = f"{symbol}.IS"
+            status_text.text(f"Taraniyor ({idx+1}/{total_symbols}): {symbol}")
+            progress_bar.progress((idx + 1) / total_symbols)
+            
+            try:
+                df = yf.download(ticker_code, period=scan_period, interval=scan_interval, progress=False)
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
+                
+                res = analyze_df(df)
+                if res and res["total_positive"] >= min_score_filter:
+                    scan_results.append({
+                        "Hisse Kodu": symbol,
+                        "Son Fiyat (TL)": f"{res['last_price']:.2f}",
+                        "Aksiyon Sinyali": res["action_signal"],
+                        "Toplam Puan": res["total_score_sum"],
+                        "Olumlu Indikator": res["total_positive"],
+                        "RSI": res["signals"]["RSI"][0].split("RSI: ")[-1].replace(")", ""),
+                    })
+            except:
+                continue
+
+        progress_bar.empty()
+        status_text.empty()
+
+        if scan_results:
+            results_df = pd.DataFrame(scan_results)
+            results_df = results_df.sort_values(by=["Toplam Puan", "Olumlu Indikator"], ascending=[False, False]).reset_index(drop=True)
+            top_50_df = results_df.head(50)
+            top_50_df["Olumlu Indikator"] = top_50_df["Olumlu Indikator"].astype(str) + " / 10"
+            top_50_df["Toplam Puan"] = top_50_df["Toplam Puan"].astype(str) + " / 100 Puan"
+            top_50_df.index = top_50_df.index + 1
+            
+            st.session_state['scan_results_df'] = top_50_df
+            st.session_state['scan_completed_msg'] = f"Tarama Tamamlandi! Taranan {total_symbols} hisse arasindan en guclu ilk {len(top_50_df)} hisse asagida siralanmistir."
+        else:
+            st.session_state['scan_results_df'] = None
+            st.session_state['scan_completed_msg'] = "Secilen kriterlere uyan hisse bulunamadi."
+
+    if st.session_state['scan_completed_msg']:
+        if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
+            st.success(st.session_state['scan_completed_msg'])
+            st.dataframe(st.session_state['scan_results_df'], use_container_width=True)
+        else:
+            st.warning(st.session_state['scan_completed_msg'])
