@@ -77,7 +77,14 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("İzleme listenizi ve elinizdeki hisseleri anlık takip edin, seçilen periyot bilgisiyle analizleri görüntüleyin.")
+period_options = [
+    "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
+    "1 Saat", "2 Saat", "3 Saat", "4 Saat",
+    "1 Günlük", "1 Haftalık", "1 Aylık", "3 Aylık", "6 Aylık", "1 Yıllık"
+]
+
+# ORTAK PERİYOT SEÇİMİ (Tüm sekmeler buradan beslenir)
+selected_global_period = st.selectbox("⏱️ **Tüm Analizler İçin Periyot Seçin (1 Saat, 1 Günlük vb.):**", period_options, index=3)
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -108,12 +115,6 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "Portföyüm", 
     "BIST Otomatik Tarayıcı"
 ])
-
-period_options = [
-    "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
-    "1 Saat", "2 Saat", "3 Saat", "4 Saat",
-    "1 Günlük", "1 Haftalık", "1 Aylık", "3 Aylık", "6 Aylık", "1 Yıllık"
-]
 
 interval_map = {
     "1 Dakika": ("1m", "7d"), "2 Dakika": ("2m", "1mo"), "3 Dakika": ("2m", "1mo"),
@@ -317,8 +318,8 @@ def render_stock_analysis(ticker_code, selected_period_str, manual_price_input="
             else:
                 last_price = res["last_price"]
                 try:
-                    if manual_price_str.strip() != "":
-                        manual_price = float(manual_price_str.replace(",", "."))
+                    if manual_price_input.strip() != "":
+                        manual_price = float(manual_price_input.replace(",", "."))
                         if manual_price > 0: last_price = manual_price
                 except: pass
 
@@ -327,7 +328,6 @@ def render_stock_analysis(ticker_code, selected_period_str, manual_price_input="
                 current_time = datetime.now().strftime("%H:%M")
 
                 st.markdown("---")
-                # PERİYOT BİLGİSİ RAPORA EKLENDİ
                 st.markdown(f"⏱️ **Periyot:** `{selected_period_str}` &nbsp;|&nbsp; 🕒 `{current_time}` &nbsp;|&nbsp; **Hisse:** `{clean_ticker}`")
                 st.markdown(f"💰 **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
@@ -366,28 +366,26 @@ def render_stock_analysis(ticker_code, selected_period_str, manual_price_input="
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
                 fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_{clean_ticker}")
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{clean_ticker}_{selected_period_str}")
 
     except Exception as e:
         st.error(f"Hata oluştu: {e}")
 
 # --- TAB 1: TEK HİSSE ANALİZİ ---
 with tab1:
-    col_t, col_p_sel, col_m = st.columns([0.4, 0.3, 0.3])
+    col_t, col_m = st.columns([0.6, 0.4])
     with col_t:
         ticker_input = st.text_input("Hisse Kodu Girin", value=st.session_state['selected_ticker'].replace(".IS", ""))
-    with col_p_sel:
-        global_period_choice = st.selectbox("Analiz Periyodu", period_options, index=3)
     with col_m:
-        manual_price_str = st.text_input("Ziraat Canlı Fiyat", value="")
+        manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
 
     if st.button("Analizi Başlat"):
-        render_stock_analysis(ticker_input, global_period_choice, manual_price_str)
+        render_stock_analysis(ticker_input, selected_global_period, manual_price_str)
 
 # --- TAB 2: İZLEME LİSTEM ---
 with tab2:
     st.subheader("📌 Takip Ettiğim Hisse Listesi")
-    st.write("Analiz etmek istediğiniz hisseye tıklayın, varsayılan periyotla detaylar alt tarafta açılsın.")
+    st.write(f"Üst kısımda seçtiğiniz **{selected_global_period}** periyodu ile analiz etmek istediğiniz hisseye tıklayın:")
     
     cols = st.columns(3)
     for idx, symbol in enumerate(WATCHLIST):
@@ -398,13 +396,12 @@ with tab2:
 
     if st.session_state.get('selected_ticker'):
         st.markdown("---")
-        st.subheader(f"📌 {st.session_state['selected_ticker']} Anlık Analiz Raporu")
-        render_stock_analysis(st.session_state['selected_ticker'], "5 Dakika")
+        render_stock_analysis(st.session_state['selected_ticker'], selected_global_period)
 
 # --- TAB 3: PORTFÖYÜM ---
 with tab3:
     st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
-    st.write("Elinizdeki hisselerin üzerine tıklayın, anlık periyot bilgisiyle detaylar alt tarafta açılsın.")
+    st.write(f"Üst kısımda seçtiğiniz **{selected_global_period}** periyodu ile elinizdeki hisseyi inceleyin:")
     
     cols_p = st.columns(3)
     for idx, symbol in enumerate(PORTFOLIO):
@@ -415,16 +412,14 @@ with tab3:
 
     if st.session_state.get('selected_ticker'):
         st.markdown("---")
-        st.subheader(f"💼 {st.session_state['selected_ticker']} Anlık Portföy Analiz Raporu")
-        render_stock_analysis(st.session_state['selected_ticker'], "5 Dakika")
+        render_stock_analysis(st.session_state['selected_ticker'], selected_global_period)
 
 # --- TAB 4: BIST TARAYICI ---
 with tab4:
     st.subheader("🚀 BIST Otomatik Hisse Tarayıcısı (Top 50)")
-    st.write("En güçlü hisseleri tarayın.")
+    st.write(f"Yukarıda seçtiğiniz **{selected_global_period}** periyoduna göre BIST havuzunu tarayın.")
     
-    scan_period_choice = st.selectbox("Tarama Periyodu Seçin", period_options, index=3, key="scan_p")
-    scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
+    scan_interval, scan_period = interval_map.get(selected_global_period, ("5m", "1mo"))
     min_score_filter = st.slider("Minimum Olumlu İndikatör Sayısı", min_value=1, max_value=10, value=5)
 
     if st.button("BIST Hisselerini Taramaya Başlat"):
@@ -435,7 +430,7 @@ with tab4:
         total_symbols = len(BIST_500_TICKERS)
         for idx, symbol in enumerate(BIST_500_TICKERS):
             ticker_code = f"{symbol}.IS"
-            status_text.text(f"Taranıyor ({idx+1}/{total_symbols}): {symbol}")
+            status_text.text(f"Taranıyor ({idx+1}/{total_symbols}): {symbol} [{selected_global_period}]")
             progress_bar.progress((idx + 1) / total_symbols)
             
             try:
@@ -466,7 +461,7 @@ with tab4:
             top_50_df.index = top_50_df.index + 1
             
             st.session_state['scan_results_df'] = top_50_df
-            st.session_state['scan_completed_msg'] = f"Tarama tamamlandı! En güçlü {len(top_50_df)} hisse aşağıda listelenmiştir."
+            st.session_state['scan_completed_msg'] = f"Tarama tamamlandı! ({selected_global_period}) En güçlü {len(top_50_df)} hisse aşağıda listelenmiştir."
         else:
             st.session_state['scan_results_df'] = None
             st.session_state['scan_completed_msg'] = "Seçilen kriterlere uyan hisse bulunamadı."
