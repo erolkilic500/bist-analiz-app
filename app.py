@@ -6,9 +6,47 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
 import uuid
+import json
+import os
 from PIL import Image
 
 st.set_page_config(page_title="BIST Pro Terminal & Portfoy Paneli", layout="wide")
+
+# ==============================================================================
+# 💾 KALICI VERİ SAKLAMA (JSON) MEKANİZMASI
+# ==============================================================================
+DATA_FILE = "user_data.json"
+
+def load_user_data():
+    """Kullanıcının kaydettiği izleme listesi ve portföy verilerini JSON dosyasından okur."""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("watchlist", []), data.get("portfolio", {})
+        except Exception as e:
+            pass
+    # Varsayılan ilk veriler
+    default_watchlist = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
+    default_portfolio = {
+        "TGSAS": {"cost": 120.00, "lots": 100},
+        "AKBNK": {"cost": 55.50, "lots": 500},
+        "GARAN": {"cost": 110.20, "lots": 250},
+        "KCHOL": {"cost": 180.00, "lots": 150}
+    }
+    return default_watchlist, default_portfolio
+
+def save_user_data():
+    """Değişiklik yapıldığında verileri anında JSON dosyasına yazıp kalıcı yapar."""
+    try:
+        data = {
+            "watchlist": st.session_state['watchlist'],
+            "portfolio": st.session_state['portfolio']
+        }
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        st.error(f"Veriler kaydedilirken hata oluştu: {e}")
 
 # ==============================================================================
 # 🔒 KULLANICI GİRİŞİ VE TEK CİHAZ KONTROLÜ
@@ -61,8 +99,17 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI VE LİSTELER
+# 🚀 UYGULAMA ANA KODLARI VE KALICI LİSTELER
 # ==============================================================================
+
+# İlk yüklemede kalıcı verileri dosyadan çek
+saved_watchlist, saved_portfolio = load_user_data()
+
+if 'watchlist' not in st.session_state:
+    st.session_state['watchlist'] = saved_watchlist
+
+if 'portfolio' not in st.session_state:
+    st.session_state['portfolio'] = saved_portfolio
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -71,17 +118,6 @@ if 'scan_results_df' not in st.session_state:
     st.session_state['scan_results_df'] = None
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
-
-if 'watchlist' not in st.session_state:
-    st.session_state['watchlist'] = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
-
-if 'portfolio' not in st.session_state:
-    st.session_state['portfolio'] = {
-        "TGSAS": {"cost": 120.00, "lots": 100},
-        "AKBNK": {"cost": 55.50, "lots": 500},
-        "GARAN": {"cost": 110.20, "lots": 250},
-        "KCHOL": {"cost": 180.00, "lots": 150}
-    }
 
 col_head1, col_head2 = st.columns([0.8, 0.2])
 with col_head1:
@@ -344,7 +380,7 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
 
                 # ÇİFT YÖNTEMLİ MOBİL UYUMLU FOTOĞRAF / EKRAN GÖRÜNTÜSÜ YÜKLEME ALANI
                 with st.expander("📷 Temel Analiz / Bilanço Fotoğrafı Yükle (Mobil Uyumlu)"):
-                    st.write("Aşağıdaki **iki farklı yükleme düğmesinden** dilediğinizi kullanabilirsiniz (Dosya Yükle veya Fotoğraf Çek / Seç):")
+                    st.write("Aşağıdaki **iki farklı yükleme düğmesinden** dilediğinizi kullanabilirsiniz:")
                     
                     col_up1, col_up2 = st.columns(2)
                     with col_up1:
@@ -359,7 +395,7 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                         st.image(img, caption=f"{clean_ticker} Bilanço / Rasyo Görseli", use_container_width=True)
                         st.success("📸 Görsel başarıyla sisteme yüklendi ve işleme alındı!")
                         
-                        st.info(f"🤖 **Yüklenen Temel Analiz Görseli Yorumu:** Görsel başarıyla işleme alındı. Teknik skorunuz ({tech_score}/100) ile yüklediğiniz bilanço/rasyo verileri ortak havuzda harmanlanmıştır. Bu veriler eşliğinde şirket rasyoları teknik sinyallerle uyumlu seyretmektedir.")
+                        st.info(f"🤖 **Yüklenen Temel Analiz Görseli Yorumu:** Görsel başarıyla işleme alındı. Teknik skorunuz ({tech_score}/100) ile yüklediğiniz bilanço/rasyo verileri ortak havuzda harmanlanmıştır.")
 
                 st.subheader("📈 1. TEKNİK İNDİKATÖR SİNYALLERİ")
                 for name, (sig, sc) in res["signals"].items():
@@ -431,7 +467,8 @@ with tab2:
             if st.button("Listeye Ekle", key="add_w_btn"):
                 if new_w != "Seçiniz..." and new_w not in st.session_state['watchlist']:
                     st.session_state['watchlist'].append(new_w)
-                    st.success(f"{new_w} izleme listesine eklendi!")
+                    save_user_data()  # 💾 JSON Dosyasına Kaydet
+                    st.success(f"{new_w} izleme listesine eklendi ve kalıcı kaydedildi!")
                     st.rerun()
                 elif new_w in st.session_state['watchlist']:
                     st.warning("Bu hisse zaten izleme listenizde var.")
@@ -439,7 +476,8 @@ with tab2:
             rem_w = st.selectbox("Listeden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w_tab")
             if st.button("Seçileni Sil", key="del_w_btn") and rem_w != "Seçiniz...":
                 st.session_state['watchlist'].remove(rem_w)
-                st.success(f"{rem_w} çıkarıldı!")
+                save_user_data()  # 💾 JSON Dosyasına Kaydet
+                st.success(f"{rem_w} çıkarıldı ve kalıcı güncellendi!")
                 st.rerun()
 
     st.write("Analiz etmek istediğiniz hisseye tıklayın:")
@@ -493,7 +531,8 @@ with tab3:
                         "cost": parsed_cost,
                         "lots": int(lot_val)
                     }
-                    st.success(f"{new_p} portföye eklendi!")
+                    save_user_data()  # 💾 JSON Dosyasına Kaydet
+                    st.success(f"{new_p} portföye eklendi ve kalıcı kaydedildi!")
                     st.rerun()
 
         st.markdown("---")
@@ -506,7 +545,8 @@ with tab3:
             st.write("")
             if st.button("Portföyden Sil", key="del_p_btn") and rem_p != "Seçiniz...":
                 del st.session_state['portfolio'][rem_p]
-                st.success(f"{rem_p} portföyden çıkarıldı!")
+                save_user_data()  # 💾 JSON Dosyasına Kaydet
+                st.success(f"{rem_p} portföyden çıkarıldı ve kalıcı güncellendi!")
                 st.rerun()
 
     portfolio_data = []
