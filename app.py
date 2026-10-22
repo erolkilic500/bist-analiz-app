@@ -60,22 +60,8 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI
+# 🚀 UYGULAMA ANA KODLARI VE STATE TANIMLARI
 # ==============================================================================
-
-col_head1, col_head2 = st.columns([0.8, 0.2])
-with col_head1:
-    st.title("BIST Pro Terminal: Portföy, İzleme & Analiz Paneli")
-with col_head2:
-    st.write(f"👤 **Kullanıcı:** `{st.session_state['username']}`")
-    if st.button("🚪 Çıkış Yap"):
-        curr_user = st.session_state["username"]
-        if curr_user in st.session_state["ACTIVE_SESSIONS"]:
-            del st.session_state["ACTIVE_SESSIONS"][curr_user]
-            
-        st.session_state["authenticated"] = False
-        st.session_state["username"] = ""
-        st.rerun()
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -85,8 +71,59 @@ if 'scan_results_df' not in st.session_state:
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
 
-WATCHLIST = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
-PORTFOLIO = ["TGSAS", "AKBNK", "GARAN", "KCHOL"]
+if 'watchlist' not in st.session_state:
+    st.session_state['watchlist'] = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
+
+if 'portfolio' not in st.session_state:
+    st.session_state['portfolio'] = ["TGSAS", "AKBNK", "GARAN", "KCHOL"]
+
+# --- SOL KENAR ÇUCUĞU (YÖNETİM PANELİ: HİSSE EKLE / ÇIKAR) ---
+with st.sidebar:
+    st.header("⚙️ Liste Yönetimi")
+    st.write(f"👤 `{st.session_state['username']}`")
+    
+    st.markdown("---")
+    st.subheader("📌 İzleme Listesi Yönetimi")
+    new_w_stock = st.text_input("İzlemeye Ekle (Hisse Kodu)").upper().strip()
+    if st.button("İzleme Listesine Ekle"):
+        if new_w_stock and new_w_stock not in st.session_state['watchlist']:
+            st.session_state['watchlist'].append(new_w_stock)
+            st.success(f"{new_w_stock} eklendi!")
+            st.rerun()
+
+    rem_w_stock = st.selectbox("İzlemeden Çıkar", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w")
+    if st.button("İzlemeden Sil") and rem_w_stock != "Seçiniz...":
+        st.session_state['watchlist'].remove(rem_w_stock)
+        st.success(f"{rem_w_stock} çıkarıldı!")
+        st.rerun()
+
+    st.markdown("---")
+    st.subheader("💼 Portföy Yönetimi")
+    new_p_stock = st.text_input("Portföye Ekle (Hisse Kodu)").upper().strip()
+    if st.button("Portföye Ekle"):
+        if new_p_stock and new_p_stock not in st.session_state['portfolio']:
+            st.session_state['portfolio'].append(new_p_stock)
+            st.success(f"{new_p_stock} portföye eklendi!")
+            st.rerun()
+
+    rem_p_stock = st.selectbox("Portföyden Çıkar", ["Seçiniz..."] + st.session_state['portfolio'], key="rem_p")
+    if st.button("Portföyden Sil") and rem_p_stock != "Seçiniz...":
+        st.session_state['portfolio'].remove(rem_p_stock)
+        st.success(f"{rem_p_stock} portföyden çıkarıldı!")
+        st.rerun()
+
+    st.markdown("---")
+    if st.button("🚪 Çıkış Yap"):
+        curr_user = st.session_state["username"]
+        if curr_user in st.session_state["ACTIVE_SESSIONS"]:
+            del st.session_state["ACTIVE_SESSIONS"][curr_user]
+        st.session_state["authenticated"] = False
+        st.session_state["username"] = ""
+        st.rerun()
+
+# Üst Başlık
+st.title("BIST Pro Terminal: Portföy, İzleme & Analiz Paneli")
+st.write("İzleme listenizi ve portföyünüzü sol menüden yönetebilir, anlık periyot değişimiyle analiz edebilirsiniz.")
 
 BIST_500_TICKERS = [
     "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
@@ -344,7 +381,6 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("--------------------------------------------------")
 
-                # İNDİKATÖR KARTLARI (PUANLAR x/10 VE DURUMLARI İLE BİRLİKTE)
                 for name, (sig, sc) in res["signals"].items():
                     color_icon = "🟢" if sc >= 7 else ("🟡" if sc >= 5 else "🔴")
                     st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {color_icon} {get_status_label(sc)}")
@@ -367,7 +403,6 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 else:
                     st.write("Son günlerde özel bir haber akışı bulunamadı.")
 
-                # Grafikler
                 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
                 fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
@@ -396,32 +431,32 @@ with tab1:
 # --- TAB 2: İZLEME LİSTEM ---
 with tab2:
     st.subheader("📌 Takip Ettiğim Hisse Listesi")
-    st.write("Analiz etmek istediğiniz hisseye tıklayın, raporun en tepesindeki periyot kutusundan dilediğiniz zaman dilimini seçin:")
+    st.write("Analiz etmek istediğiniz hisseye tıklayın:")
     
     cols = st.columns(3)
-    for idx, symbol in enumerate(WATCHLIST):
+    for idx, symbol in enumerate(st.session_state['watchlist']):
         with cols[idx % 3]:
             st.markdown(f"### {symbol}")
             if st.button(f"🔍 {symbol} Analiz Et", key=f"watch_{symbol}"):
                 st.session_state['selected_ticker'] = symbol
 
-    if st.session_state.get('selected_ticker'):
+    if st.session_state.get('selected_ticker') and st.session_state['selected_ticker'] in st.session_state['watchlist']:
         st.markdown("---")
         render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab2")
 
 # --- TAB 3: PORTFÖYÜM ---
 with tab3:
     st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
-    st.write("Elinizdeki hissenin üzerine tıklayın, açılan rapordan anlık periyot değiştirin:")
+    st.write("Elinizdeki hissenin üzerine tıklayın:")
     
     cols_p = st.columns(3)
-    for idx, symbol in enumerate(PORTFOLIO):
+    for idx, symbol in enumerate(st.session_state['portfolio']):
         with cols_p[idx % 3]:
             st.markdown(f"### 🟩 {symbol}")
             if st.button(f"📊 {symbol} Detay & Haberler", key=f"port_{symbol}"):
                 st.session_state['selected_ticker'] = symbol
 
-    if st.session_state.get('selected_ticker'):
+    if st.session_state.get('selected_ticker') and st.session_state['selected_ticker'] in st.session_state['portfolio']:
         st.markdown("---")
         render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab3")
 
