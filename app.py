@@ -299,7 +299,6 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
 
     st.markdown("---")
     
-    # TAM İSTEDİĞİN YERDE (ÖZET SATIRININ İÇİNDE) PERİYOT SEÇİMİ
     c_per, c_time, c_sym = st.columns([1.4, 0.9, 1.2])
     with c_per:
         selected_period_str = st.selectbox(
@@ -345,7 +344,7 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("--------------------------------------------------")
 
-                # İndikatör Kartları
+                # İNDİKATÖR KARTLARI (PUANLAR x/10 VE DURUMLARI İLE BİRLİKTE)
                 for name, (sig, sc) in res["signals"].items():
                     color_icon = "🟢" if sc >= 7 else ("🟡" if sc >= 5 else "🔴")
                     st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {color_icon} {get_status_label(sc)}")
