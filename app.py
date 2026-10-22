@@ -60,7 +60,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI VE STATE TANIMLARI
+# 🚀 UYGULAMA ANA KODLARI VE KALICI LİSTE YÖNETİMİ
 # ==============================================================================
 
 if 'selected_ticker' not in st.session_state:
@@ -71,6 +71,7 @@ if 'scan_results_df' not in st.session_state:
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
 
+# İzleme ve Portföy listelerini session_state ile koruma altına alıyoruz
 if 'watchlist' not in st.session_state:
     st.session_state['watchlist'] = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
 
@@ -90,7 +91,7 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("İzleme listenizi ve portföyünüzü doğrudan ilgili sekmelerden yönetebilir, anlık periyot değişimiyle analiz edebilirsiniz.")
+st.write("İzleme listenizi ve portföyünüzü doğrudan sekmelerden yönetebilir, eklediğiniz hisseleri güvenle takip edebilirsiniz.")
 
 BIST_500_TICKERS = [
     "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
@@ -399,19 +400,18 @@ with tab1:
 with tab2:
     st.subheader("📌 Takip Ettiğim Hisse Listesi")
     
-    # Doğrudan sekme içinde ekleme ve çıkarma aracı
     with st.expander("➕ İzleme Listesine Yeni Hisse Ekle / Çıkar"):
         col_ew1, col_ew2 = st.columns(2)
         with col_ew1:
-            new_w = st.text_input("Eklenecek Hisse Kodu").upper().strip()
-            if st.button("Listeye Ekle"):
+            new_w = st.text_input("Eklenecek Hisse Kodu", key="new_w_input").upper().strip()
+            if st.button("Listeye Ekle", key="add_w_btn"):
                 if new_w and new_w not in st.session_state['watchlist']:
                     st.session_state['watchlist'].append(new_w)
                     st.success(f"{new_w} eklendi!")
                     st.rerun()
         with col_ew2:
             rem_w = st.selectbox("Listeden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w_tab")
-            if st.button("Seçileni Sil") and rem_w != "Seçiniz...":
+            if st.button("Seçileni Sil", key="del_w_btn") and rem_w != "Seçiniz...":
                 st.session_state['watchlist'].remove(rem_w)
                 st.success(f"{rem_w} çıkarıldı!")
                 st.rerun()
@@ -431,19 +431,18 @@ with tab2:
 with tab3:
     st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
     
-    # Doğrudan sekme içinde ekleme ve çıkarma aracı
     with st.expander("➕ Portföye Yeni Hisse Ekle / Çıkar"):
         col_ep1, col_ep2 = st.columns(2)
         with col_ep1:
-            new_p = st.text_input("Portföye Eklenecek Hisse Kodu").upper().strip()
-            if st.button("Portföye Ekle"):
+            new_p = st.text_input("Portföye Eklenecek Hisse Kodu", key="new_p_input").upper().strip()
+            if st.button("Portföye Ekle", key="add_p_btn"):
                 if new_p and new_p not in st.session_state['portfolio']:
                     st.session_state['portfolio'].append(new_p)
                     st.success(f"{new_p} portföye eklendi!")
                     st.rerun()
         with col_ep2:
             rem_p = st.selectbox("Portföyden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['portfolio'], key="rem_p_tab")
-            if st.button("Portföyden Sil") and rem_p != "Seçiniz...":
+            if st.button("Portföyden Sil", key="del_p_btn") and rem_p != "Seçiniz...":
                 st.session_state['portfolio'].remove(rem_p)
                 st.success(f"{rem_p} portföyden çıkarıldı!")
                 st.rerun()
