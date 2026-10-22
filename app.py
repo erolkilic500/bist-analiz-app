@@ -144,8 +144,10 @@ def analyze_df(df):
     curr_open = float(df['Open'].iloc[-1])
     
     gap_status = "Normal Açılış"
-    if curr_open > prev_high: gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif)"
-    elif curr_open < prev_low: gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
+    if curr_open > prev_high:
+        gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif)"
+    elif curr_open < prev_low:
+        gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
 
     # 1. RSI
     delta = df['Close'].diff()
@@ -155,10 +157,14 @@ def analyze_df(df):
     rsi = 100 - (100 / (1 + rs))
     val_rsi = float(rsi.iloc[-1])
     
-    if 40 <= val_rsi <= 70: rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
-    elif val_rsi < 30: rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip Adayı)", 8
-    elif val_rsi > 70: rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f} Aşırı Alım)", 4
-    else: rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 5
+    if 40 <= val_rsi <= 70:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
+    elif val_rsi < 30:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip Adayı)", 8
+    elif val_rsi > 70:
+        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f} Aşırı Alım)", 4
+    else:
+        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 5
 
     # 2. SuperTrend
     hl2 = (df['High'] + df['Low']) / 2
@@ -239,16 +245,26 @@ def analyze_df(df):
     avg_score = round(np.mean(scores), 1)
 
     action_signal = "NÖTR"
-    if val_rsi < 35 and stoch_cross_up: action_signal = "🚀 DİPTEN AL (Dip Dönüşü)"
-    elif val_rsi > 72 and stoch_cross_down: action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Alım)"
-    elif last_price > val_bb and not vol_high and val_macd < val_sig: action_signal = "🪤 BOĞA TUZAĞI (Düşük Hacim)"
-    elif last_price < val_bb and val_rsi < 35 and vol_high and stoch_cross_up: action_signal = "🐻 AYI TUZAĞI (Silkeleme)"
-    elif val_ema20 > val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_up: action_signal = "📈 ARA AL (Düzeltme Alımı)"
-    elif val_ema20 < val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_down: action_signal = "📉 ARA SAT (Tepki Satışı)"
-    elif total_positive >= 8 and total_score_sum >= 75: action_signal = "🟢 NET AL (Güçlü Yükseliş)"
-    elif total_positive <= 3 or total_score_sum <= 40: action_signal = "🔴 NET SAT (Düşüş Trendi)"
-    elif total_positive >= 5: action_signal = "🟡 BEKLE / İZLE (Nötr-Olumlu)"
-    else: action_signal = "🟠 RİSKLİ / BEKLE"
+    if val_rsi < 35 and stoch_cross_up:
+        action_signal = "🚀 DİPTEN AL (Dip Dönüşü)"
+    elif val_rsi > 72 and stoch_cross_down:
+        action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Alım)"
+    elif last_price > val_bb and not vol_high and val_macd < val_sig:
+        action_signal = "🪤 BOĞA TUZAĞI (Düşük Hacim)"
+    elif last_price < val_bb and val_rsi < 35 and vol_high and stoch_cross_up:
+        action_signal = "🐻 AYI TUZAĞI (Silkeleme)"
+    elif val_ema20 > val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_up:
+        action_signal = "📈 ARA AL (Düzeltme Alımı)"
+    elif val_ema20 < val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_down:
+        action_signal = "📉 ARA SAT (Tepki Satışı)"
+    elif total_positive >= 8 and total_score_sum >= 75:
+        action_signal = "🟢 NET AL (Güçlü Yükseliş)"
+    elif total_positive <= 3 or total_score_sum <= 40:
+        action_signal = "🔴 NET SAT (Düşüş Trendi)"
+    elif total_positive >= 5:
+        action_signal = "🟡 BEKLE / İZLE (Nötr-Olumlu)"
+    else:
+        action_signal = "🟠 RİSKLİ / BEKLE"
 
     comment = f"Hisse {total_score_sum}/100 teknik puana sahiptir. "
     if "AL" in action_signal:
@@ -315,8 +331,10 @@ if selected_tab == "🔍 Tek Hisse Detaylı Analiz & Haberler":
                     try:
                         if manual_price_str.strip() != "":
                             manual_price = float(manual_price_str.replace(",", "."))
-                            if manual_price > 0: last_price = manual_price
-                    except: pass
+                            if manual_price > 0:
+                                last_price = manual_price
+                    except:
+                        pass
 
                     stop_loss = last_price * (1 - 0.015)
                     take_profit = last_price * (1 + 0.05)
@@ -348,46 +366,4 @@ if selected_tab == "🔍 Tek Hisse Detaylı Analiz & Haberler":
                     fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode="lines", name="EMA 50", line=dict(color="dodgerblue", width=1.2)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["macd_line"], mode="lines", name="MACD", line=dict(color="cyan", width=1.5)), row=2, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["signal_line"], mode="lines", name="MACD Sinyal", line=dict(color="magenta", width=1.5)), row=2, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
-                    fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
-                    st.plotly_chart(fig, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Hata oluştu: {e}")
-
-# --- 2. İZLEME LİSTEM ---
-elif selected_tab == "📌 İzleme Listem":
-    st.subheader("📌 Takip Ettiğim Hisse Listesi")
-    st.write("Aşağıdaki listeden dilediğiniz hisseye basarak anında detaylı analizine geçebilirsiniz.")
-    
-    cols = st.columns(3)
-    for idx, symbol in enumerate(WATCHLIST):
-        with cols[idx % 3]:
-            st.markdown(f"### {symbol}")
-            if st.button(f"🔍 {symbol} Analiz Et", key=f"watch_{symbol}"):
-                st.session_state['selected_ticker'] = symbol
-                st.session_state['selected_tab_radio'] = "🔍 Tek Hisse Detaylı Analiz & Haberler"
-                st.session_state['auto_run'] = True
-                st.rerun()
-
-# --- 3. PORTFÖYÜM (ALDIGIM HİSSELER) ---
-elif selected_tab == "💼 Portföyüm (Aldığım Hisseler)":
-    st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
-    st.write("Elinizde bulunan hisselerin anlık teknik durumunu incelemek için tıklayın.")
-    
-    cols_p = st.columns(3)
-    for idx, symbol in enumerate(PORTFOLIO):
-        with cols_p[idx % 3]:
-            st.markdown(f"### 🟩 {symbol}")
-            if st.button(f"📊 {symbol} Detay & Haberler", key=f"port_{symbol}"):
-                st.session_state['selected_ticker'] = symbol
-                st.session_state['selected_tab_radio'] = "🔍 Tek Hisse Detaylı Analiz & Haberler"
-                st.session_state['auto_run'] = True
-                st.rerun()
-
-# --- 4. BIST TARAYICI (TOP 50) ---
-elif selected_tab == "🚀 BIST Otomatik Tarayıcı (Top 50)":
-    st.subheader("BIST Otomatik Hisse Tarayıcısı (Top 50
+                    fig.add_trace(go.Scatter(x=df.index,
