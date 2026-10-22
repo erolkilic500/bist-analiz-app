@@ -297,13 +297,23 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
     if not clean_ticker.endswith(".IS"):
         clean_ticker += ".IS"
 
-    # RAPOR İÇİNDE PERİYOT SEÇİM KUTUSU (Benzersiz key ile)
-    selected_period_str = st.selectbox(
-        "⏱️ **Analiz Periyodunu Seçin:**", 
-        period_options, 
-        index=3, 
-        key=f"per_{key_prefix}_{clean_ticker}"
-    )
+    st.markdown("---")
+    
+    # TAM İSTEDİĞİN YERDE (ÖZET SATIRININ İÇİNDE) PERİYOT SEÇİMİ
+    c_per, c_time, c_sym = st.columns([1.4, 0.9, 1.2])
+    with c_per:
+        selected_period_str = st.selectbox(
+            "⏱️ Periyot", 
+            period_options, 
+            index=3, 
+            key=f"per_{key_prefix}_{clean_ticker}",
+            label_visibility="collapsed"
+        )
+    with c_time:
+        current_time = datetime.now().strftime("%H:%M")
+        st.markdown(f"🕒 `{current_time}`")
+    with c_sym:
+        st.markdown(f"**Hisse:** `{clean_ticker}`")
 
     interval, period = interval_map.get(selected_period_str, ("5m", "1mo"))
 
@@ -330,10 +340,7 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
 
                 stop_loss = last_price * (1 - 0.015)
                 take_profit = last_price * (1 + 0.05)
-                current_time = datetime.now().strftime("%H:%M")
 
-                st.markdown("---")
-                st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Hisse:** `{clean_ticker}`")
                 st.markdown(f"💰 **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("--------------------------------------------------")
@@ -390,7 +397,7 @@ with tab1:
 # --- TAB 2: İZLEME LİSTEM ---
 with tab2:
     st.subheader("📌 Takip Ettiğim Hisse Listesi")
-    st.write("Analiz etmek istediğiniz hisseye tıklayın, raporun içinde periyodunu dilediğiniz gibi değiştirin:")
+    st.write("Analiz etmek istediğiniz hisseye tıklayın, raporun en tepesindeki periyot kutusundan dilediğiniz zaman dilimini seçin:")
     
     cols = st.columns(3)
     for idx, symbol in enumerate(WATCHLIST):
@@ -406,7 +413,7 @@ with tab2:
 # --- TAB 3: PORTFÖYÜM ---
 with tab3:
     st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
-    st.write("Elinizdeki hissenin üzerine tıklayın, rapor içinden periyodunu anlık değiştirin:")
+    st.write("Elinizdeki hissenin üzerine tıklayın, açılan rapordan anlık periyot değiştirin:")
     
     cols_p = st.columns(3)
     for idx, symbol in enumerate(PORTFOLIO):
