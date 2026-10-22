@@ -292,17 +292,17 @@ def get_status_label(score):
     elif score >= 5: return "🟡 **[Nötr]**"
     else: return "🔴 **[Zayıf / Riskli]**"
 
-def render_stock_analysis(ticker_code, manual_price_input=""):
+def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input=""):
     clean_ticker = ticker_code.strip().upper()
     if not clean_ticker.endswith(".IS"):
         clean_ticker += ".IS"
 
-    # RAPOR İÇİNDE PERİYOT SEÇİM KUTUSU
+    # RAPOR İÇİNDE PERİYOT SEÇİM KUTUSU (Benzersiz key ile)
     selected_period_str = st.selectbox(
         "⏱️ **Analiz Periyodunu Seçin:**", 
         period_options, 
         index=3, 
-        key=f"per_{clean_ticker}"
+        key=f"per_{key_prefix}_{clean_ticker}"
     )
 
     interval, period = interval_map.get(selected_period_str, ("5m", "1mo"))
@@ -371,7 +371,7 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
                 fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_{clean_ticker}_{selected_period_str}")
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{key_prefix}_{clean_ticker}_{selected_period_str}")
 
     except Exception as e:
         st.error(f"Hata oluştu: {e}")
@@ -385,7 +385,7 @@ with tab1:
         manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
 
     if st.button("Analizi Başlat"):
-        render_stock_analysis(ticker_input, manual_price_str)
+        render_stock_analysis(ticker_input, key_prefix="tab1", manual_price_input=manual_price_str)
 
 # --- TAB 2: İZLEME LİSTEM ---
 with tab2:
@@ -401,7 +401,7 @@ with tab2:
 
     if st.session_state.get('selected_ticker'):
         st.markdown("---")
-        render_stock_analysis(st.session_state['selected_ticker'])
+        render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab2")
 
 # --- TAB 3: PORTFÖYÜM ---
 with tab3:
@@ -417,7 +417,7 @@ with tab3:
 
     if st.session_state.get('selected_ticker'):
         st.markdown("---")
-        render_stock_analysis(st.session_state['selected_ticker'])
+        render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab3")
 
 # --- TAB 4: BIST TARAYICI ---
 with tab4:
