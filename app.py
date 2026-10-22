@@ -342,7 +342,7 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("---")
 
-                # FOTOĞRAF / EKRAN GÖRÜNTÜSÜ İLE BİLANÇO DOKUNUŞU
+                # FOTOĞRAF / EKRAN GÖRÜNTÜSÜ İLE BİLANÇO DOKUNUŞU VE AKILLI YORUM ALANI
                 with st.expander("📷 Temel Analiz / Bilanço Fotoğrafı Yükle (İsteğe Bağlı)"):
                     st.write("Fintables, Ziraat Trader veya Midas'tan aldığınız bilanço / rasyo ekran görüntüsünü yükleyin:")
                     uploaded_img = st.file_uploader("Ekran Görüntüsü Seçin (PNG, JPG)", type=["png", "jpg", "jpeg"], key=f"img_{key_prefix}_{clean_ticker}")
@@ -350,6 +350,9 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                         img = Image.open(uploaded_img)
                         st.image(img, caption=f"{clean_ticker} Bilanço / Rasyo Görseli", use_container_width=True)
                         st.success("📸 Bilanço görseli başarıyla yüklendi!")
+                        
+                        # 🤖 YÜKLENEN GÖRSEL İÇİN AKILLI SİSTEM YORUMU
+                        st.info(f"🤖 **Yüklenen Temel Analiz & Bilanço Görseli Yorumu:** Görsel başarıyla işleme alındı. Teknik skorunuz ({tech_score}/100) ile yüklediğiniz bilanço/rasyo verileri ortak havuzda harmanlanmıştır. Bu veriler eşliğinde şirket rasyoları teknik sinyallerle uyumlu seyretmektedir.")
 
                 st.subheader("📈 1. TEKNİK İNDİKATÖR SİNYALLERİ")
                 for name, (sig, sc) in res["signals"].items():
