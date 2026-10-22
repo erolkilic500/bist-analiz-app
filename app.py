@@ -132,49 +132,33 @@ interval_map = {
 }
 
 def analyze_fundamental(ticker_obj, last_price):
-    """Şirketin Mali Yapısını, Bilanço Rasyolarını ve Değerleme Oranlarını Hesaplar."""
-    info = ticker_obj.info or {}
+    """Şirketin Mali Yapısını, Bilanço Rasyolarını Hızlıca Hesaplar."""
+    info = {}
+    try:
+        info = ticker_obj.info or {}
+    except:
+        pass
     
     pe_ratio = info.get('trailingPE', info.get('forwardPE', None))
     pb_ratio = info.get('priceToBook', None)
     roe = info.get('returnOnEquity', None)
     current_ratio = info.get('currentRatio', None)
     dividend_yield = info.get('dividendYield', 0.0)
-    sector_name = info.get('sector', 'BIST Şirketi')
+    sector_name = info.get('sector', 'BIST Sektörü')
 
-    # Eğer info üzerinden veriler boş geldiyse finansal tablolardan hesapla/tahmin et
+    # Eğer Cari Oran veya diğer rasyolar gelmediyse hızlı Bilanço denemesi yap
     try:
-        fin = ticker_obj.financials
-        bs = ticker_obj.balance_sheet
-        
-        if pe_ratio is None and not fin.empty:
-            net_income_rows = [r for r in fin.index if 'Net Income' in str(r)]
-            if net_income_rows and len(fin.loc[net_income_rows[0]]) > 0:
-                net_income = fin.loc[net_income_rows[0]].iloc[0]
-                shares = info.get('sharesOutstanding', None)
-                if shares and shares > 0:
-                      eps = net_income / shares
-                      if eps > 0:
-                          pe_ratio = last_price / eps
-
-        if pb_ratio is None and not bs.empty:
-            equity_rows = [r for r in bs.index if 'Stockholders Equity' in str(r) or 'Total Equity' in str(r)]
-            if equity_rows and len(bs.loc[equity_rows[0]]) > 0:
-                total_equity = bs.loc[equity_rows[0]].iloc[0]
-                shares = info.get('sharesOutstanding', None)
-                if shares and shares > 0:
-                    book_value_per_share = total_equity / shares
-                    if book_value_per_share > 0:
-                        pb_ratio = last_price / book_value_per_share
-
-        if current_ratio is None and not bs.empty:
-            ca_rows = [r for r in bs.index if 'Current Assets' in str(r)]
-            cl_rows = [r for r in bs.index if 'Current Liabilities' in str(r)]
-            if ca_rows and cl_rows:
-                ca = bs.loc[ca_rows[0]].iloc[0]
-                cl = bs.loc[cl_rows[0]].iloc[0]
-                if cl > 0:
-                    current_ratio = ca / cl
+        if current_ratio is None or pb_ratio is None or pe_ratio is None:
+            bs = ticker_obj.balance_sheet
+            if not bs.empty:
+                # Cari Oran
+                if current_ratio is None:
+                    ca_idx = [i for i in bs.index if 'Current Assets' in str(i)]
+                    cl_idx = [i for i in bs.index if 'Current Liabilities' in str(i)]
+                    if ca_idx and cl_idx:
+                        ca = float(bs.loc[ca_idx[0]].iloc[0])
+                        cl = float(bs.loc[cl_idx[0]].iloc[0])
+                        if cl > 0: current_ratio = ca / cl
     except:
         pass
 
@@ -386,9 +370,13 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
     interval, period = interval_map.get(selected_period_str, ("5m", "1mo"))
 
     try:
-        with st.spinner(f"{clean_ticker} Temel ve Teknik verileri hesaplanıyor..."):
+        with st.spinner(f"{clean_ticker} verileri hesaplanıyor..."):
             t_obj = yf.Ticker(clean_ticker)
-            news_list = t_obj.news
+            
+            try:
+                news_list = t_obj.news
+            except:
+                news_list = []
 
             df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             if isinstance(df.columns, pd.MultiIndex):
@@ -406,7 +394,6 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                         if manual_price > 0: last_price = manual_price
                 except: pass
 
-                # Temel Verileri Hesapla
                 fund_res = analyze_fundamental(t_obj, last_price)
 
                 stop_loss = last_price * (1 - 0.015)
@@ -440,10 +427,10 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.subheader("🏛️ 1. ŞİRKET TEMEL ANALİZİ & RASYOLAR")
                 f1, f2, f3, f4 = st.columns(4)
                 with f1:
-                    st.metric("F/K Oranı", f"{fund_res['pe_ratio']:.2f}" if fund_res['pe_ratio'] else "Hesaplanıyor / Veri Yok")
+                    st.metric("F/K Oranı", f"{fund_res['pe_ratio']:.2f}" if fund_res['pe_ratio'] else "Veri Yok / Banka")
                     st.metric("Cari Oran (Borç Gücü)", f"{fund_res['current_ratio']:.2f}" if fund_res['current_ratio'] else "N/A")
                 with f2:
-                    st.metric("PD/DD (Defter Değeri)", f"{fund_res['pb_ratio']:.2f}" if fund_res['pb_ratio'] else "Hesaplanıyor / Veri Yok")
+                    st.metric("PD/DD (Defter Değeri)", f"{fund_res['pb_ratio']:.2f}" if fund_res['pb_ratio'] else "Veri Yok")
                     st.metric("Özkaynak Kârlılığı (ROE)", f"%{fund_res['roe']:.1f}" if fund_res['roe'] else "N/A")
                 with f3:
                     st.metric("Temettü Verimi", f"%{fund_res['dividend_yield']:.2f}")
@@ -654,83 +641,4 @@ with tab3:
         with m_c2:
             st.metric("📊 Güncel Portföy Değeri", f"₺{total_current_val:,.2f}")
         with m_c3:
-            st.metric("📈 Toplam Kâr / Zarar", f"₺{total_pnl_tl:,.2f}", f"{total_pnl_pct:+.2f}%")
-        st.markdown("---")
-
-    st.write("Elinizdeki hisseler ve anlık durumları:")
-    cols_p = st.columns(2)
-    for idx, item in enumerate(portfolio_data):
-        sym = item["symbol"]
-        pnl_icon = "📈" if item["pnl_pct"] >= 0 else "📉"
-        pnl_color = "🟢" if item["pnl_pct"] >= 0 else "🔴"
-        
-        with cols_p[idx % 2]:
-            st.markdown(f"### {pnl_color} {sym}")
-            st.markdown(f"**Maliyet:** `{item['cost']:.2f} TL` &nbsp;|&nbsp; **Anlık Fiyat:** `{item['curr_price']:.2f} TL`")
-            st.markdown(f"**Lot Adedi:** `{item['lots']:,}` &nbsp;|&nbsp; **Toplam Değer:** `{item['current_val']:,.2f} TL`")
-            st.markdown(f"**Anlık Kâr/Zarar:** {pnl_icon} `%{item['pnl_pct']:+.2f}` (`₺{item['pnl_tl']:+,.2f}`)")
-            
-            if st.button(f"📊 {sym} Analizi Gör", key=f"port_{sym}"):
-                st.session_state['selected_ticker'] = sym
-            st.markdown("---")
-
-    if st.session_state.get('selected_ticker') and st.session_state['selected_ticker'] in st.session_state['portfolio']:
-        render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab3")
-
-# --- TAB 4: BIST TARAYICI ---
-with tab4:
-    st.subheader("🚀 BIST Otomatik Hisse Tarayıcısı (Top 50)")
-    scan_period_choice = st.selectbox("Tarama Periyodu Seçin", period_options, index=3, key="scan_p")
-    scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
-    min_score_filter = st.slider("Minimum Olumlu İndikatör Sayısı", min_value=1, max_value=10, value=5)
-
-    if st.button("BIST Hisselerini Taramaya Başlat"):
-        scan_results = []
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-
-        total_symbols = len(BIST_500_TICKERS)
-        for idx, symbol in enumerate(BIST_500_TICKERS):
-            ticker_code = f"{symbol}.IS"
-            status_text.text(f"Taranıyor ({idx+1}/{total_symbols}): {symbol} [{scan_period_choice}]")
-            progress_bar.progress((idx + 1) / total_symbols)
-            
-            try:
-                df = yf.download(ticker_code, period=scan_period, interval=scan_interval, progress=False)
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.get_level_values(0)
-                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
-                
-                res = analyze_df(df)
-                if res and res["total_positive"] >= min_score_filter:
-                    scan_results.append({
-                        "Hisse Kodu": symbol,
-                        "Son Fiyat (TL)": f"{res['last_price']:.2f}",
-                        "Aksiyon Sinyali": res["pressure_status"],
-                        "Teknik Puan": res["tech_score_sum"],
-                        "Olumlu İndikatör": res["total_positive"]
-                    })
-            except:
-                continue
-
-        progress_bar.empty()
-        status_text.empty()
-
-        if scan_results:
-            results_df = pd.DataFrame(scan_results)
-            results_df = results_df.sort_values(by=["Teknik Puan", "Olumlu İndikatör"], ascending=[False, False]).reset_index(drop=True)
-            top_50_df = results_df.head(50)
-            top_50_df.index = top_50_df.index + 1
-            
-            st.session_state['scan_results_df'] = top_50_df
-            st.session_state['scan_completed_msg'] = f"Tarama tamamlandı! ({scan_period_choice}) En güçlü {len(top_50_df)} hisse aşağıda listelenmiştir."
-        else:
-            st.session_state['scan_results_df'] = None
-            st.session_state['scan_completed_msg'] = "Seçilen kriterlere uyan hisse bulunamadı."
-
-    if st.session_state['scan_completed_msg']:
-        if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
-            st.success(st.session_state['scan_completed_msg'])
-            st.dataframe(st.session_state['scan_results_df'], use_container_width=True)
-        else:
-            st.warning(st.session_state['scan_completed_msg'])
+            st.metric("📈 Toplam Kâr / Zarar", f"₺{total_
