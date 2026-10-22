@@ -368,4 +368,253 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
                 fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
-                fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode="lines", name="EMA 50", line=dict(color="dodger
+                fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode="lines", name="EMA 50", line=dict(color="dodgerblue", width=1.2)), row=1, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["macd_line"], mode="lines", name="MACD", line=dict(color="cyan", width=1.5)), row=2, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["signal_line"], mode="lines", name="MACD Sinyal", line=dict(color="magenta", width=1.5)), row=2, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
+                fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{key_prefix}_{clean_ticker}_{selected_period_str}")
+
+    except Exception as e:
+        st.error(f"Hata oluştu: {e}")
+
+# --- TAB 1: TEK HİSSE ANALİZİ ---
+with tab1:
+    col_t, col_m = st.columns([0.6, 0.4])
+    with col_t:
+        ticker_input = st.selectbox(
+            "Hisse Seçin veya Kodunu Yazın", 
+            options=BIST_500_TICKERS, 
+            index=BIST_500_TICKERS.index(st.session_state['selected_ticker']) if st.session_state['selected_ticker'] in BIST_500_TICKERS else 0,
+            key="tab1_ticker_select"
+        )
+    with col_m:
+        manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
+
+    if st.button("Analizi Başlat"):
+        render_stock_analysis(ticker_input, key_prefix="tab1", manual_price_input=manual_price_str)
+
+# --- TAB 2: İZLEME LİSTEM ---
+with tab2:
+    st.subheader("📌 Takip Ettiğim Hisse Listesi")
+    
+    with st.expander("➕ İzleme Listesine Yeni Hisse Ekle / Çıkar"):
+        col_ew1, col_ew2 = st.columns(2)
+        with col_ew1:
+            new_w = st.selectbox(
+                "Eklenecek Hisse (Yazarak Arayın)", 
+                options=["Seçiniz..."] + BIST_500_TICKERS, 
+                key="new_w_select"
+            )
+            if st.button("Listeye Ekle", key="add_w_btn"):
+                if new_w != "Seçiniz..." and new_w not in st.session_state['watchlist']:
+                    st.session_state['watchlist'].append(new_w)
+                    st.success(f"{new_w} izleme listesine eklendi!")
+                    st.rerun()
+                elif new_w in st.session_state['watchlist']:
+                    st.warning("Bu hisse zaten izleme listenizde var.")
+        with col_ew2:
+            rem_w = st.selectbox("Listeden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w_tab")
+            if st.button("Seçileni Sil", key="del_w_btn") and rem_w != "Seçiniz...":
+                st.session_state['watchlist'].remove(rem_w)
+                st.success(f"{rem_w} çıkarıldı!")
+                st.rerun()
+
+    st.write("Analiz etmek istediğiniz hisseye tıklayın:")
+    cols = st.columns(3)
+    for idx, symbol in enumerate(st.session_state['watchlist']):
+        with cols[idx % 3]:
+            st.markdown(f"### {symbol}")
+            if st.button(f"🔍 {symbol} Analiz Et", key=f"watch_{symbol}"):
+                st.session_state['selected_ticker'] = symbol
+
+    if st.session_state.get('selected_ticker') and st.session_state['selected_ticker'] in st.session_state['watchlist']:
+        render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab2")
+
+# --- TAB 3: PORTFÖYÜM ---
+with tab3:
+    st.subheader("💼 Portföyümdeki Hisseler & Anlık Kâr/Zarar Durumu")
+    
+    with st.expander("➕ Portföye Yeni Hisse Ekle veya Sil"):
+        col_ep1, col_ep2, col_ep3, col_ep4 = st.columns([1.5, 1, 1, 1])
+        with col_ep1:
+            new_p = st.selectbox(
+                "Hisse Seçin", 
+                options=["Seçiniz..."] + BIST_500_TICKERS, 
+                key="new_p_select"
+            )
+        with col_ep2:
+            cost_val = st.text_input("Maliyet (TL) (Boş = Canlı Fiyat)", value="")
+        with col_ep3:
+            lot_val = st.number_input("Lot Adedi", min_value=1, value=100, step=10)
+        with col_ep4:
+            st.write("")
+            st.write("")
+            if st.button("Portföye Ekle", key="add_p_btn"):
+                if new_p != "Seçiniz...":
+                    parsed_cost = 0.0
+                    try:
+                        if cost_val.strip() != "":
+                            parsed_cost = float(cost_val.replace(",", "."))
+                    except: pass
+                    
+                    if parsed_cost <= 0:
+                        try:
+                            df_temp = yf.download(f"{new_p}.IS", period="1d", interval="1m", progress=False)
+                            if isinstance(df_temp.columns, pd.MultiIndex):
+                                df_temp.columns = df_temp.columns.get_level_values(0)
+                            parsed_cost = float(df_temp['Close'].dropna().iloc[-1])
+                        except:
+                            parsed_cost = 0.0
+
+                    st.session_state['portfolio'][new_p] = {
+                        "cost": parsed_cost,
+                        "lots": int(lot_val)
+                    }
+                    st.success(f"{new_p} portföye eklendi!")
+                    st.rerun()
+
+        st.markdown("---")
+        col_del1, col_del2 = st.columns([2, 1])
+        with col_del1:
+            p_keys = list(st.session_state['portfolio'].keys())
+            rem_p = st.selectbox("Portföyden Çıkarılacak Hisse", ["Seçiniz..."] + p_keys, key="rem_p_tab")
+        with col_del2:
+            st.write("")
+            st.write("")
+            if st.button("Portföyden Sil", key="del_p_btn") and rem_p != "Seçiniz...":
+                del st.session_state['portfolio'][rem_p]
+                st.success(f"{rem_p} portföyden çıkarıldı!")
+                st.rerun()
+
+    portfolio_data = []
+    total_invested = 0.0
+    total_current_val = 0.0
+
+    if st.session_state['portfolio']:
+        with st.spinner("Portföy canlı fiyatları güncelleniyor..."):
+            for sym, info in st.session_state['portfolio'].items():
+                t_code = f"{sym}.IS" if not sym.endswith(".IS") else sym
+                cost = info["cost"]
+                lots = info["lots"]
+                
+                try:
+                    df_p = yf.download(t_code, period="1d", interval="5m", progress=False)
+                    if isinstance(df_p.columns, pd.MultiIndex):
+                        df_p.columns = df_p.columns.get_level_values(0)
+                    curr_price = float(df_p['Close'].dropna().iloc[-1])
+                except:
+                    curr_price = cost if cost > 0 else 1.0
+
+                if cost <= 0: cost = curr_price
+
+                invested = cost * lots
+                current_val = curr_price * lots
+                pnl_tl = current_val - invested
+                pnl_pct = ((curr_price - cost) / cost) * 100 if cost > 0 else 0.0
+
+                total_invested += invested
+                total_current_val += current_val
+
+                portfolio_data.append({
+                    "symbol": sym,
+                    "cost": cost,
+                    "curr_price": curr_price,
+                    "lots": lots,
+                    "invested": invested,
+                    "current_val": current_val,
+                    "pnl_tl": pnl_tl,
+                    "pnl_pct": pnl_pct
+                })
+
+    if total_invested > 0:
+        total_pnl_tl = total_current_val - total_invested
+        total_pnl_pct = (total_pnl_tl / total_invested) * 100
+        
+        m_c1, m_c2, m_c3 = st.columns(3)
+        with m_c1:
+            st.metric("💰 Toplam Anapara (Maliyet)", f"₺{total_invested:,.2f}")
+        with m_c2:
+            st.metric("📊 Güncel Portföy Değeri", f"₺{total_current_val:,.2f}")
+        with m_c3:
+            st.metric("📈 Toplam Kâr / Zarar", f"₺{total_pnl_tl:,.2f}", f"{total_pnl_pct:+.2f}%")
+        st.markdown("---")
+
+    st.write("Elinizdeki hisseler ve anlık durumları:")
+    cols_p = st.columns(2)
+    for idx, item in enumerate(portfolio_data):
+        sym = item["symbol"]
+        pnl_icon = "📈" if item["pnl_pct"] >= 0 else "📉"
+        pnl_color = "🟢" if item["pnl_pct"] >= 0 else "🔴"
+        
+        with cols_p[idx % 2]:
+            st.markdown(f"### {pnl_color} {sym}")
+            st.markdown(f"**Maliyet:** `{item['cost']:.2f} TL` &nbsp;|&nbsp; **Anlık Fiyat:** `{item['curr_price']:.2f} TL`")
+            st.markdown(f"**Lot Adedi:** `{item['lots']:,}` &nbsp;|&nbsp; **Toplam Değer:** `{item['current_val']:,.2f} TL`")
+            st.markdown(f"**Anlık Kâr/Zarar:** {pnl_icon} `%{item['pnl_pct']:+.2f}` (`₺{item['pnl_tl']:+,.2f}`)")
+            
+            if st.button(f"📊 {sym} Analizi Gör", key=f"port_{sym}"):
+                st.session_state['selected_ticker'] = sym
+            st.markdown("---")
+
+    if st.session_state.get('selected_ticker') and st.session_state['selected_ticker'] in st.session_state['portfolio']:
+        render_stock_analysis(st.session_state['selected_ticker'], key_prefix="tab3")
+
+# --- TAB 4: BIST TARAYICI ---
+with tab4:
+    st.subheader("🚀 BIST Otomatik Hisse Tarayıcısı (Top 50)")
+    scan_period_choice = st.selectbox("Tarama Periyodu Seçin", period_options, index=3, key="scan_p")
+    scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
+    min_score_filter = st.slider("Minimum Olumlu İndikatör Sayısı", min_value=1, max_value=10, value=5)
+
+    if st.button("BIST Hisselerini Taramaya Başlat"):
+        scan_results = []
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        total_symbols = len(BIST_500_TICKERS)
+        for idx, symbol in enumerate(BIST_500_TICKERS):
+            ticker_code = f"{symbol}.IS"
+            status_text.text(f"Taranıyor ({idx+1}/{total_symbols}): {symbol} [{scan_period_choice}]")
+            progress_bar.progress((idx + 1) / total_symbols)
+            
+            try:
+                df = yf.download(ticker_code, period=scan_period, interval=scan_interval, progress=False)
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
+                
+                res = analyze_df(df)
+                if res and res["total_positive"] >= min_score_filter:
+                    scan_results.append({
+                        "Hisse Kodu": symbol,
+                        "Son Fiyat (TL)": f"{res['last_price']:.2f}",
+                        "Aksiyon Sinyali": res["action_signal"],
+                        "Toplam Puan": res["total_score_sum"],
+                        "Olumlu İndikatör": res["total_positive"]
+                    })
+            except:
+                continue
+
+        progress_bar.empty()
+        status_text.empty()
+
+        if scan_results:
+            results_df = pd.DataFrame(scan_results)
+            results_df = results_df.sort_values(by=["Toplam Puan", "Olumlu İndikatör"], ascending=[False, False]).reset_index(drop=True)
+            top_50_df = results_df.head(50)
+            top_50_df.index = top_50_df.index + 1
+            
+            st.session_state['scan_results_df'] = top_50_df
+            st.session_state['scan_completed_msg'] = f"Tarama tamamlandı! ({scan_period_choice}) En güçlü {len(top_50_df)} hisse aşağıda listelenmiştir."
+        else:
+            st.session_state['scan_results_df'] = None
+            st.session_state['scan_completed_msg'] = "Seçilen kriterlere uyan hisse bulunamadı."
+
+    if st.session_state['scan_completed_msg']:
+        if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
+            st.success(st.session_state['scan_completed_msg'])
+            st.dataframe(st.session_state['scan_results_df'], use_container_width=True)
+        else:
+            st.warning(st.session_state['scan_completed_msg'])
