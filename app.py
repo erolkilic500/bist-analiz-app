@@ -60,7 +60,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI VE STATE TANIMLARI
+# 🚀 UYGULAMA ANA KODLARI VE GÜNCELLENMİŞ VARSAYILAN LİSTELER
 # ==============================================================================
 
 if 'selected_ticker' not in st.session_state:
@@ -71,9 +71,11 @@ if 'scan_results_df' not in st.session_state:
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
 
+# İzleme listeniz
 if 'watchlist' not in st.session_state:
     st.session_state['watchlist'] = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
 
+# Portföyünüz (Görselde yer alan TGSAS, AKBNK, GARAN, KCHOL ve güncel yapı)
 if 'portfolio' not in st.session_state:
     st.session_state['portfolio'] = {
         "TGSAS": {"cost": 120.00, "lots": 100},
