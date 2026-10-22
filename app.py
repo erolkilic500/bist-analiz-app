@@ -60,7 +60,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI & OTOMATİK SEKME YÖNETİMİ
+# 🚀 UYGULAMA ANA KODLARI
 # ==============================================================================
 
 col_head1, col_head2 = st.columns([0.8, 0.2])
@@ -78,9 +78,6 @@ with col_head2:
         st.rerun()
 
 st.write("Izleme listenizi ve elinizdeki hisseleri anlik takip edin, tek tikla detayli analize gecin!")
-
-if 'selected_tab_radio' not in st.session_state:
-    st.session_state['selected_tab_radio'] = "Tek Hisse Detayli Analiz & Haberler"
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -107,14 +104,13 @@ BIST_500_TICKERS = [
     "TUPRS", "ULKER", "VAKBN", "VESBE", "VESTL", "YKBNK", "ZOREN"
 ]
 
-tabs = [
-    "Tek Hisse Detayli Analiz & Haberler", 
+# Yerleşik Tab Yapısı (Çakışmaları önler)
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Tek Hisse Detayli Analiz", 
     "Izleme Listem", 
     "Portfoyum (Aldigim Hisseler)", 
     "BIST Otomatik Tarayici (Top 50)"
-]
-
-selected_tab = st.radio("Sayfa Seciniz:", tabs, key="selected_tab_radio", horizontal=True)
+])
 
 period_options = [
     "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
@@ -295,8 +291,8 @@ def analyze_df(df):
         "stoch_k": stoch_k, "stoch_d": stoch_d
     }
 
-# --- 1. TEK HİSSE ANALİZİ VE HABERLER ---
-if selected_tab == "Tek Hisse Detayli Analiz & Haberler":
+# --- TAB 1: TEK HİSSE ANALİZİ ---
+with tab1:
     col_t, col_m = st.columns(2)
     with col_t:
         ticker_input = st.text_input("Hisse Kodu Girin", value=st.session_state['selected_ticker'].replace(".IS", ""))
@@ -349,7 +345,6 @@ if selected_tab == "Tek Hisse Detayli Analiz & Haberler":
                     st.info(f"SİSTEM VE YAZILIM YORUMU: {res['comment']}")
                     st.markdown("--------------------------------------------------")
 
-                    # Haberler
                     st.subheader("Hisseyle Ilgili Son Haberler")
                     if news_list:
                         for n in news_list[:4]:
@@ -360,9 +355,7 @@ if selected_tab == "Tek Hisse Detayli Analiz & Haberler":
                     else:
                         st.write("Son gunlerde ozel bir haber akisi bulunamadi.")
 
-                    # Grafikler
                     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
-                    
                     fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode="lines", name="EMA 50", line=dict(color="dodgerblue", width=1.2)), row=1, col=1)
@@ -377,8 +370,8 @@ if selected_tab == "Tek Hisse Detayli Analiz & Haberler":
         except Exception as e:
             st.error(f"Hata olustu: {e}")
 
-# --- 2. İZLEME LİSTEM ---
-elif selected_tab == "Izleme Listem":
+# --- TAB 2: İZLEME LİSTEM ---
+with tab2:
     st.subheader("Takip Ettigim Hisse Listesi")
     st.write("Asagidaki listeden dilediginiz hisseye basarak aninda detayli analizine gecebilirsiniz.")
     
@@ -388,84 +381,10 @@ elif selected_tab == "Izleme Listem":
             st.markdown(f"### {symbol}")
             if st.button(f"{symbol} Analiz Et", key=f"watch_{symbol}"):
                 st.session_state['selected_ticker'] = symbol
-                st.session_state['selected_tab_radio'] = "Tek Hisse Detayli Analiz & Haberler"
                 st.session_state['auto_run'] = True
-                st.rerun()
+                st.success(f"{symbol} seçildi! Üstteki 'Tek Hisse Detaylı Analiz' sekmesine geçebilirsiniz.")
 
-# --- 3. PORTFÖYÜM ---
-elif selected_tab == "Portfoyum (Aldigim Hisseler)":
+# --- TAB 3: PORTFÖYÜM ---
+with tab3:
     st.subheader("Portfoyumdeki (Aldigim) Hisseler")
-    st.write("Elinizde bulunan hisselerin anlik teknik durumunu incelemek icin tiklayin.")
-    
-    cols_p = st.columns(3)
-    for idx, symbol in enumerate(PORTFOLIO):
-        with cols_p[idx % 3]:
-            st.markdown(f"### {symbol}")
-            if st.button(f"{symbol} Detay & Haberler", key=f"port_{symbol}"):
-                st.session_state['selected_ticker'] = symbol
-                st.session_state['selected_tab_radio'] = "Tek Hisse Detayli Analiz & Haberler"
-                st.session_state['auto_run'] = True
-                st.rerun()
-
-# --- 4. BIST TARAYICI ---
-elif selected_tab == "BIST Otomatik Tarayici (Top 50)":
-    st.subheader("BIST Otomatik Hisse Tarayicisi (Top 50)")
-    st.write("BIST havuzunu tarar; aksiyon sinyallerini ve teknik puanlari listeler.")
-    
-    scan_period_choice = st.selectbox("Tarama Periyodu Secin", period_options, index=3, key="scan_p")
-    scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
-    min_score_filter = st.slider("Minimum Olumlu Indikator Sayisi", min_value=1, max_value=10, value=5)
-
-    if st.button("BIST Hisselerini Taramaya Baslat"):
-        scan_results = []
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-
-        total_symbols = len(BIST_500_TICKERS)
-        for idx, symbol in enumerate(BIST_500_TICKERS):
-            ticker_code = f"{symbol}.IS"
-            status_text.text(f"Taraniyor ({idx+1}/{total_symbols}): {symbol}")
-            progress_bar.progress((idx + 1) / total_symbols)
-            
-            try:
-                df = yf.download(ticker_code, period=scan_period, interval=scan_interval, progress=False)
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.get_level_values(0)
-                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
-                
-                res = analyze_df(df)
-                if res and res["total_positive"] >= min_score_filter:
-                    scan_results.append({
-                        "Hisse Kodu": symbol,
-                        "Son Fiyat (TL)": f"{res['last_price']:.2f}",
-                        "Aksiyon Sinyali": res["action_signal"],
-                        "Toplam Puan": res["total_score_sum"],
-                        "Olumlu Indikator": res["total_positive"],
-                        "RSI": res["signals"]["RSI"][0].split("RSI: ")[-1].replace(")", ""),
-                    })
-            except:
-                continue
-
-        progress_bar.empty()
-        status_text.empty()
-
-        if scan_results:
-            results_df = pd.DataFrame(scan_results)
-            results_df = results_df.sort_values(by=["Toplam Puan", "Olumlu Indikator"], ascending=[False, False]).reset_index(drop=True)
-            top_50_df = results_df.head(50)
-            top_50_df["Olumlu Indikator"] = top_50_df["Olumlu Indikator"].astype(str) + " / 10"
-            top_50_df["Toplam Puan"] = top_50_df["Toplam Puan"].astype(str) + " / 100 Puan"
-            top_50_df.index = top_50_df.index + 1
-            
-            st.session_state['scan_results_df'] = top_50_df
-            st.session_state['scan_completed_msg'] = f"Tarama Tamamlandi! Taranan {total_symbols} hisse arasindan en guclu ilk {len(top_50_df)} hisse asagida siralanmistir."
-        else:
-            st.session_state['scan_results_df'] = None
-            st.session_state['scan_completed_msg'] = "Secilen kriterlere uyan hisse bulunamadi."
-
-    if st.session_state['scan_completed_msg']:
-        if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
-            st.success(st.session_state['scan_completed_msg'])
-            st.dataframe(st.session_state['scan_results_df'], use_container_width=True)
-        else:
-            st.warning(st.session_state['scan_completed_msg'])
+    st.write("Elin
