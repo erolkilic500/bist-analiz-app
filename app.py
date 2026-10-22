@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 import uuid
 
-st.set_page_config(page_title="BIST Pro Terminal & Gelişmiş Sinyal Paneli", layout="wide")
+st.set_page_config(page_title="BIST Pro Terminal & Portföy Paneli", layout="wide")
 
 # ==============================================================================
 # 🔒 KULLANICI GİRİŞİ VE TEK CİHAZ KONTROLÜ
@@ -60,12 +60,12 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI
+# 🚀 UYGULAMA ANA KODLARI & SESSİON YÖNETİMİ
 # ==============================================================================
 
 col_head1, col_head2 = st.columns([0.8, 0.2])
 with col_head1:
-    st.title("BIST Pro Terminal: Teknik, GAP & Haber Analiz Paneli")
+    st.title("BIST Pro Terminal: Portföy, İzleme & Analiz Paneli")
 with col_head2:
     st.write(f"👤 **Kullanıcı:** `{st.session_state['username']}`")
     if st.button("🚪 Çıkış Yap"):
@@ -77,64 +77,41 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("Teknik indikatörler, otomatik GAP tespiti ve güncel haber/makro akışıyla profesyonel karar destek sistemi!")
+st.write("İzleme listenizi ve elinizdeki hisseleri anlık takip edin, tek tıkla detaylı analize ulaşın!")
 
-if 'last_searched_ticker' not in st.session_state:
-    st.session_state['last_searched_ticker'] = ""
+# Tıklanan hisseyi dinamik yönlendirmek için session state
+if 'selected_ticker' not in st.session_state:
+    st.session_state['selected_ticker'] = "THYAO"
 
 if 'scan_results_df' not in st.session_state:
     st.session_state['scan_results_df'] = None
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
 
+# --- ÖZEL İZLEME VE PORTFÖY LİSTELERİNİZ ---
+# Buraya istediğiniz hisse kodlarını ekleyip çıkarabilirsiniz:
+WATCHLIST = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
+PORTFOLIO = ["TGSAS", "AKBNK", "GARAN", "KCHOL"]
+
 # --- BIST 500 HİSSE LİSTESİ ---
 BIST_500_TICKERS = [
     "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
     "AKBNK", "AKCNS", "AKFGY", "AKFYE", "AKGRT", "AKMGY", "AKSA", "AKSEN", "AKSGY", "AKSUE",
-    "AKTVF", "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", "ALKA", "ALKIM", "ALMAD",
-    "ALTNY", "ALVES", "ANELE", "ANGEN", "ANHYT", "ANSGR", "ARASE", "ARCLK", "ARDYZ", "ARENA",
-    "ARSAN", "ARTMS", "ASELS", "ASGYO", "ASTOR", "ATAKP", "ATATP", "ATEKS", "ATSYO", "AVOD",
-    "AVPGY", "AVTUR", "AYCES", "AYDEM", "AYEN", "AYGAZ", "AZTEK", "BAGFS", "BAKAB", "BALAT",
-    "BANVT", "BARMA", "BASGZ", "BAYRK", "BELEV", "BFREN", "BIENP", "BIGCH", "BIMAS", "BINHO",
-    "BIOEN", "BOBET", "BORAB", "BORSK", "BOSSA", "BRISA", "BRKO", "BRKSN", "BRMEN", "BRSAN",
-    "BRKVY", "BRLSM", "BRMEN", "BSOKE", "BTCIM", "BUCIM", "BURCE", "BURVA", "BVSAN", "BYDNR",
-    "CANTE", "CASA", "CATES", "CCOLA", "CELHA", "CEMAS", "CEMTS", "CMBTN", "CMENT", "CONSE",
-    "COSMO", "CRDFA", "CRFSA", "CUSAN", "CVAKN", "CWENE", "DAGI", "DAPGM", "DARDL", "DGATE",
-    "DGGYO", "DITAS", "DMCOR", "DOAS", "DOBUR", "DOCTA", "DOHOL", "DOKTA", "DURDO", "DYOBY",
-    "DZGYO", "EBEBK", "ECILC", "ECZYT", "EDATA", "EDIP", "EGEEN", "EGGUB", "EGYO", "EKGYO",
-    "EKIZ", "EKSUN", "ELITE", "EMKEL", "ENJSA", "ENKAI", "ENSRI", "EPLAS", "ERCB", "EREGL",
-    "ERSU", "ESCAR", "ESEN", "ETILR", "EUPWR", "EEYHO", "FADE", "FENER", "FLAP", "FMIZP",
-    "FONET", "FORMT", "FORTE", "FRIGO", "FROTO", "FZLGY", "GARAN", "GARFA", "GEDIK", "GEDZA",
-    "GENIL", "GENTS", "GEREL", "GESAN", "GIPTA", "GLBMD", "GLYHO", "GMTAS", "GOKNR", "GOLTS",
-    "GOODY", "GOZDE", "GRNYO", "GRTRK", "GSDHO", "GSDEO", "GUBRF", "GWIND", "GZNMI", "HALKB",
-    "HATEK", "HATSN", "HEKTS", "HKTM", "HOLDR", "HUBVC", "HUNER", "HURGZ", "ICBCT", "ICUGS",
-    "IDGYO", "IEYHO", "IHAAS", "IHEVA", "IHGZT", "IHLGM", "IHLAS", "INGRM", "INTEM", "INVEO",
-    "INVES", "IPEKE", "ISATR", "ISBTR", "ISCTR", "ISDMR", "ISFIN", "ISGSY", "ISGYO", "ISKPL",
-    "ISMEN", "ISSEN", "ITEKS", "ITTFH", "IZENR", "IZINV", "IZMDC", "JANTS", "KAPLM", "KAREL",
-    "KARSN", "KARTN", "KARYV", "KATMR", "KCAER", "KCHOL", "KENT", "KRTEK", "KFEIN", "KGYO",
-    "KIMMR", "KLGYO", "KLMSN", "KLNMA", "KLRZO", "KLSER", "KMPUR", "KNFRT", "KONTR", "KONKA",
-    "KORDS", "KOZAA", "KOZAL", "KRDMD", "KRGYO", "KRONT", "KRPLS", "KRVGD", "KSTUR", "KTLEV",
-    "KUTAŞ", "KUTPO", "KSTUR", "KUYAŞ", "LIDER", "LKMNH", "LOGO", "LUKSK", "MAALT", "MACKO",
-    "MAKIM", "MAKTK", "MANAS", "MARKA", "MAVI", "MEDTR", "MEGAP", "MEGMT", "MEPET", "MERCN",
-    "MERIT", "MERKO", "METRO", "METUR", "MHRGY", "MIATK", "MGROS", "MIPAZ", "MMCAS", "MNDTR",
-    "MOBTL", "MTRKS", "MTRYO", "MZHLD", "NATEN", "NETAS", "NIBAS", "NTHOL", "NUGYO", "NUHCM",
-    "OBAMS", "OBRGY", "ODAS", "OFSYM", "ONCSM", "ORCA", "ORGE", "ORMA", "OSTIM", "OTKAR",
-    "OYAKC", "OYYAT", "OZATD", "OZKGY", "OZRDN", "PAGYO", "PAMEL", "PAPIL", "PARSN", "PASEU",
-    "PENGD", "PENTA", "PETKM", "PETLO", "PETRN", "PGSUS", "PINAR", "PKART", "PKENT", "PLTUR",
-    "PNLSN", "POLHO", "POLTK", "PRDGS", "PRKME", "PRZMA", "PSGYO", "QUAGR", "RALYH", "RAYSG",
-    "REEDR", "RGYAS", "RNPOL", "RODRG", "ROYAL", "RUBNS", "RYGYO", "RYSAS", "SAHOL", "SAMAT",
-    "SANEL", "SANFM", "SANKO", "SARKY", "SASA", "SAYAS", "SDTTR", "SEKFK", "SEKUR", "SELEC",
-    "SELVA", "SEYKM", "SILVR", "SISE", "SKBNK", "SKTAS", "SMART", "SMRTG", "SNAAM", "SNICA",
-    "SNKRN", "SOKM", "SONME", "SRVGY", "SUMAS", "SUNTK", "SURGY", "SUWEN", "TABGD", "TARKM",
-    "TATEN", "TATGD", "TAVHL", "TSEGY", "TBORG", "TCELL", "TDGYO", "TEKTU", "TERA", "TETMT",
-    "TGSAS", "THYAO", "TKFEN", "TKNSA", "TLMAN", "TMSN", "TNZTP", "TOASO", "TRCAS", "TRGYO",
-    "TRILC", "TSKB", "TSPOR", "TTKOM", "TTRAK", "TUCLK", "TUPRS", "TURGG", "TURSG", "UFUK",
-    "ULKER", "ULUFA", "ULAS", "UNLU", "USAK", "VAKBN", "VAKFN", "VAKKO", "VASAT", "VBTYZ",
-    "VERTU", "VERUS", "VESBE", "VESTL", "VKFYO", "VKGYO", "YAPRK", "YATAS", "YAYLA", "YEOTK",
-    "YGGYO", "YGYO", "YKBNK", "YONGA", "YBTAS", "YYAPI", "YYLGD", "ZOREN", "ZRGYO"
+    "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", "ALKA", "ALKIM", "ALMAD", "ALTNY",
+    "ARCLK", "ARDYZ", "ASELS", "ASTOR", "ATATP", "AYGAZ", "BAGFS", "BIMAS", "BRSAN", "CANTE",
+    "CCOLA", "CWENE", "DOAS", "DOHOL", "EGEEN", "EKGYO", "ENJSA", "ENKAI", "EREGL", "FROTO",
+    "GARAN", "GESAN", "GUBRF", "HALKB", "HEKTS", "ISCTR", "KCAER", "KCHOL", "KONTR", "KOZAA",
+    "KOZAL", "KRDMD", "MAVI", "MIATK", "MGROS", "ODAS", "OTKAR", "OYAKC", "PETKM", "PGSUS",
+    "SAHOL", "SASA", "SISE", "SKBNK", "SOKM", "TABGD", "TCELL", "TGSAS", "THYAO", "TOASO",
+    "TUPRS", "ULKER", "VAKBN", "VESBE", "VESTL", "YKBNK", "ZOREN"
 ]
 
-tab1, tab2 = st.tabs(["Tek Hisse Detaylı Analiz & Haberler", "BIST Otomatik Tarayıcı (Top 50)"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🔍 Tek Hisse Detaylı Analiz & Haberler", 
+    "📌 İzleme Listem", 
+    "💼 Portföyüm (Aldığım Hisseler)", 
+    "🚀 BIST Otomatik Tarayıcı (Top 50)"
+])
 
 period_options = [
     "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
@@ -159,16 +136,13 @@ def analyze_df(df):
     recent_df = df.tail(20)
     last_price = float(df['Close'].iloc[-1])
     
-    # GAP (Boşluk) Analizi Kontrolü (Son mum açılışı ile bir önceki mumun yüksek/düşük seviyesi)
     prev_high = float(df['High'].iloc[-2])
     prev_low = float(df['Low'].iloc[-2])
     curr_open = float(df['Open'].iloc[-1])
     
     gap_status = "Normal Açılış"
-    if curr_open > prev_high:
-        gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif Açılış)"
-    elif curr_open < prev_low:
-        gap_status = "🔴 Aşağı GAP (Boşluklu Negatif Açılış)"
+    if curr_open > prev_high: gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif)"
+    elif curr_open < prev_low: gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
 
     # 1. RSI
     delta = df['Close'].diff()
@@ -261,31 +235,29 @@ def analyze_df(df):
     total_score_sum = sum(scores)
     avg_score = round(np.mean(scores), 1)
 
-    # ==========================================================================
     # 🎯 ÖZEL SİNYAL VE AKSİYON DETEKTÖRÜ
-    # ==========================================================================
     action_signal = "NÖTR"
-    
-    if val_rsi < 35 and stoch_cross_up:
-        action_signal = "🚀 DİPTEN AL (Dip Dönüşü)"
-    elif val_rsi > 72 and stoch_cross_down:
-        action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Alım Dönüşü)"
-    elif last_price > val_bb and not vol_high and val_macd < val_sig:
-        action_signal = "🪤 BOĞA TUZAĞI (Düşük Hacimli Yükseliş)"
-    elif last_price < val_bb and val_rsi < 35 and vol_high and stoch_cross_up:
-        action_signal = "🐻 AYI TUZAĞI (Silkeleme / Dökme Hareketi)"
-    elif val_ema20 > val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_up:
-        action_signal = "📈 ARA AL (Trend Düzeltme Alımı)"
-    elif val_ema20 < val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_down:
-        action_signal = "📉 ARA SAT (Tepki Yükselişi Satışı)"
-    elif total_positive >= 8 and total_score_sum >= 75:
-        action_signal = "🟢 NET AL (Güçlü Yükseliş Trendi)"
-    elif total_positive <= 3 or total_score_sum <= 40:
-        action_signal = "🔴 NET SAT (Düşüş Trendi)"
-    elif total_positive >= 5:
-        action_signal = "🟡 BEKLE / İZLE (Nötr-Olumlu)"
+    if val_rsi < 35 and stoch_cross_up: action_signal = "🚀 DİPTEN AL (Dip Dönüşü)"
+    elif val_rsi > 72 and stoch_cross_down: action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Alım)"
+    elif last_price > val_bb and not vol_high and val_macd < val_sig: action_signal = "🪤 BOĞA TUZAĞI (Düşük Hacim)"
+    elif last_price < val_bb and val_rsi < 35 and vol_high and stoch_cross_up: action_signal = "🐻 AYI TUZAĞI (Silkeleme)"
+    elif val_ema20 > val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_up: action_signal = "📈 ARA AL (Düzeltme Alımı)"
+    elif val_ema20 < val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_down: action_signal = "📉 ARA SAT (Tepki Satışı)"
+    elif total_positive >= 8 and total_score_sum >= 75: action_signal = "🟢 NET AL (Güçlü Yükseliş)"
+    elif total_positive <= 3 or total_score_sum <= 40: action_signal = "🔴 NET SAT (Düşüş Trendi)"
+    elif total_positive >= 5: action_signal = "🟡 BEKLE / İZLE (Nötr-Olumlu)"
+    else: action_signal = "🟠 RİSKLİ / BEKLE"
+
+    # Yapay Zeka / Sistem Yorumu Oluşturucu
+    comment = f"Hisse {total_score_sum}/100 teknik puana sahiptir. "
+    if "AL" in action_signal:
+        comment += "Teknik göstergeler momentumun alıcılar lehine döndüğünü gösteriyor. Stop-Loss seviyesine dikkat edilerek değerlendirilebilir."
+    elif "SAT" in action_signal:
+        comment += "Aşırı satım veya trend bozulması emareleri var. Yeni alım riski yüksek, kar realizasyonu düşünülebilir."
+    elif "TUZAĞI" in action_signal:
+        comment += "Hacim ve gösterge uyumsuzluğu mevcut. Yalancı kırılımlara karşı temkinli olunmalı."
     else:
-        action_signal = "🟠 RİSKLİ / BEKLE"
+        comment += "İndikatörler yatay/kararsız bir seyir gösteriyor. Net bir kırılım beklenmeli."
 
     return {
         "last_price": last_price,
@@ -294,6 +266,7 @@ def analyze_df(df):
         "avg_score": avg_score,
         "action_signal": action_signal,
         "gap_status": gap_status,
+        "comment": comment,
         "signals": {
             "RSI": (rsi_sig, rsi_score), "SuperTrend": (st_sig, st_score),
             "Stochastic": (stoch_sig, stoch_score), "MACD": (macd_sig, macd_score),
@@ -310,10 +283,9 @@ def analyze_df(df):
 with tab1:
     col_t, col_m = st.columns(2)
     with col_t:
-        ticker_input = st.text_input("Hisse Kodu (Örn: THYAO, BERA, BIMAS, TGSAS)", value="TGSAS")
+        ticker_input = st.text_input("Hisse Kodu Girin", value=st.session_state['selected_ticker'].replace(".IS", ""))
     with col_m:
         manual_price_str = st.text_input("Ziraat Canlı Fiyat", value="")
-        st.markdown("<p style='font-size:12px; color:#ff4b4b; font-weight:bold; margin-top:-10px; margin-bottom:0px;'>DOĞRU SONUÇ ALMAK İSTİYORSANIZ ANLIK FİYATI YAZINIZ</p>", unsafe_allow_html=True)
 
     clean_ticker = ticker_input.strip().upper()
     if not clean_ticker.endswith(".IS"):
@@ -322,13 +294,12 @@ with tab1:
     period_choice = st.selectbox("Periyot Seçin", period_options, index=3)
     interval, period = interval_map.get(period_choice, ("5m", "1mo"))
 
-    if st.button("Teknik, GAP & Haber Analizini Başlat"):
-        st.session_state['last_searched_ticker'] = clean_ticker
+    if st.button("Teknik, GAP & Haber Analizini Başlat") or st.session_state.get('auto_run', False):
+        st.session_state['auto_run'] = False
         try:
-            with st.spinner(f"{clean_ticker} verileri ve haberler taranıyor..."):
-                # Hisse nesnesi ve haberler
+            with st.spinner(f"{clean_ticker} verileri indiriliyor..."):
                 t_obj = yf.Ticker(clean_ticker)
-                news_list = t_obj.news  # Yahoo Finance son haberleri
+                news_list = t_obj.news
 
                 df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
                 if isinstance(df.columns, pd.MultiIndex):
@@ -346,53 +317,28 @@ with tab1:
                             if manual_price > 0: last_price = manual_price
                     except: pass
 
-                    period_min = float(res["recent_df"]['Low'].min())
-                    period_max = float(res["recent_df"]['High'].max())
-                    ort_val = float(res["recent_df"]['Close'].mean())
-
                     stop_loss = last_price * (1 - 0.015)
                     take_profit = last_price * (1 + 0.05)
                     current_time = datetime.now().strftime("%H:%M")
 
                     st.markdown("---")
-                    st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
-                    st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
-                    st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
+                    st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Hisse:** `{clean_ticker}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
+                    st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}` &nbsp;|&nbsp; **GAP Durumu:** `{res['gap_status']}`")
                     st.markdown("--------------------------------------------------")
 
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.write("**Periyot**\n" + period_choice)
-                    c2.write(f"**Min (SL)**\n`{period_min:.2f}`")
-                    c3.write(f"**Ort**\n`{ort_val:.2f}`")
-                    c4.write(f"**Max**\n`{period_max:.2f}`")
-
-                    st.markdown("--------------------------------------------------")
-                    def get_status_label(score):
-                        if score >= 9: return "🟢 **[Çok İyi]**"
-                        elif score >= 7: return "🟢 **[Uygun]**"
-                        elif score >= 5: return "🟡 **[Nötr]**"
-                        else: return "🔴 **[Zayıf / Riskli]**"
-
-                    for name, (sig, sc) in res["signals"].items():
-                        st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {get_status_label(sc)}")
-
-                    st.markdown("--------------------------------------------------")
                     st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{res['action_signal']}`")
-                    st.markdown(f"📈 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Genel Durum: {res['total_positive']}/10 Olumlu)")
+                    st.markdown(f"📈 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; ({res['total_positive']}/10 Olumlu)")
+                    st.info(f"🤖 **SİSTEM VE YAZILIM YORUMU:** {res['comment']}")
                     st.markdown("--------------------------------------------------")
 
-                    # --- HABERLER VE MAKRO / SİYASİ BİLGİ PENCERESİ ---
-                    st.subheader("📰 Son Dakika Haberler & Temel / Makro Gündem")
+                    # Haberler
+                    st.subheader("📰 Hisseyle İlgili Son Haberler")
                     if news_list:
-                        for n in news_list[:5]: # En son 5 haber
-                            title = n.get('title', 'Başlık Yok')
-                            publisher = n.get('publisher', 'Kaynak Yok')
-                            link = n.get('link', '#')
-                            st.markdown(f"- 📌 **[{publisher}]** [{title}]({link})")
+                        for n in news_list[:4]:
+                            st.markdown(f"- 📌 **[{n.get('publisher', 'Haber')}]** [{n.get('title')}]({n.get('link', '#')})")
                     else:
-                        st.info("Bu hisse için son dönemde otomatik çekilebilecek yeni haber bulunamadı. (Lütfen KAP bildirimlerini kontrol edin)")
+                        st.write("Son günlerde özel bir haber akışı bulunamadı.")
 
-                    st.markdown("---")
                     # Grafikler
                     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
                     fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
@@ -402,21 +348,48 @@ with tab1:
                     fig.add_trace(go.Scatter(x=df.index, y=res["signal_line"], mode="lines", name="MACD Sinyal", line=dict(color="magenta", width=1.5)), row=2, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
-                    fig.update_layout(template="plotly_dark", height=700, margin=dict(l=10, r=10, t=30, b=10))
+                    fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
                     st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.error(f"Hata oluştu: {e}")
 
-# --- SEKME 2: BIST TARAYICI (TOP 50) ---
+# --- SEKME 2: İZLEME LİSTEM ---
 with tab2:
+    st.subheader("📌 Takip Ettiğim Hisse Listesi")
+    st.write("Aşağıdaki listeden dilediğiniz hisseye basarak anında detaylı analizini yapabilirsiniz.")
+    
+    cols = st.columns(3)
+    for idx, symbol in enumerate(WATCHLIST):
+        with cols[idx % 3]:
+            st.markdown(f"### {symbol}")
+            if st.button(f"🔍 {symbol} Analiz Et", key=f"watch_{symbol}"):
+                st.session_state['selected_ticker'] = symbol
+                st.session_state['auto_run'] = True
+                st.success(f"{symbol} seçildi! Lütfen 'Tek Hisse Detaylı Analiz' sekmesine geçin.")
+
+# --- SEKME 3: PORTFÖYÜM (ALDIGIM HİSSELER) ---
+with tab3:
+    st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
+    st.write("Elinizde bulunan hisselerin anlık teknik durumunu incelemek için tıklayın.")
+    
+    cols_p = st.columns(3)
+    for idx, symbol in enumerate(PORTFOLIO):
+        with cols_p[idx % 3]:
+            st.markdown(f"### 🟩 {symbol}")
+            if st.button(f"📊 {symbol} Detay & Haberler", key=f"port_{symbol}"):
+                st.session_state['selected_ticker'] = symbol
+                st.session_state['auto_run'] = True
+                st.success(f"{symbol} seçildi! Lütfen 'Tek Hisse Detaylı Analiz' sekmesine geçin.")
+
+# --- SEKME 4: BIST TARAYICI (TOP 50) ---
+with tab4:
     st.subheader("BIST Otomatik Hisse Tarayıcısı (Top 50)")
-    st.write("BIST 500 havuzunu tarar; aksiyon sinyallerini, GAP durumunu ve puanları listeler.")
+    st.write("BIST havuzunu tarar; aksiyon sinyallerini ve teknik puanları listeler.")
     
     scan_period_choice = st.selectbox("Tarama Periyodu Seçin", period_options, index=3, key="scan_p")
     scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
-    
-    min_score_filter = st.slider("Minimum Olumlu İndikatör Sayısı (0 - 10)", min_value=1, max_value=10, value=5)
+    min_score_filter = st.slider("Minimum Olumlu İndikatör Sayısı", min_value=1, max_value=10, value=5)
 
     if st.button("BIST Hisselerini Taramaya Başlat"):
         scan_results = []
@@ -441,7 +414,6 @@ with tab2:
                         "Hisse Kodu": symbol,
                         "Son Fiyat (TL)": f"{res['last_price']:.2f}",
                         "Aksiyon Sinyali": res["action_signal"],
-                        "GAP Durumu": "GAP'li" if "GAP" in res["gap_status"] else "Normal",
                         "Toplam Puan": res["total_score_sum"],
                         "Olumlu İndikatör": res["total_positive"],
                         "RSI": res["signals"]["RSI"][0].split("RSI: ")[-1].replace(")", ""),
@@ -464,7 +436,7 @@ with tab2:
             st.session_state['scan_completed_msg'] = f"Tarama Tamamlandı! Taranan {total_symbols} hisse arasından en güçlü ilk {len(top_50_df)} hisse aşağıda sıralanmıştır."
         else:
             st.session_state['scan_results_df'] = None
-            st.session_state['scan_completed_msg'] = "Seçilen kriterlere uyan hisse bulunamadı. Filtre değerini biraz düşürebilirsiniz."
+            st.session_state['scan_completed_msg'] = "Seçilen kriterlere uyan hisse bulunamadı."
 
     if st.session_state['scan_completed_msg']:
         if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
