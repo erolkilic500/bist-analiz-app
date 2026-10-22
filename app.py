@@ -77,7 +77,7 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("İzleme listenizi ve elinizdeki hisseleri anlık takip edin, tek tıkla tüm indikatör kartlarını ve sistem yorumunu görüntüleyin.")
+st.write("İzleme listenizi ve elinizdeki hisseleri anlık takip edin, seçilen periyot bilgisiyle analizleri görüntüleyin.")
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -294,17 +294,19 @@ def get_status_label(score):
     elif score >= 5: return "🟡 **[Nötr]**"
     else: return "🔴 **[Zayıf / Riskli]**"
 
-def render_stock_analysis(ticker_code, manual_price_input=""):
+def render_stock_analysis(ticker_code, selected_period_str, manual_price_input=""):
     clean_ticker = ticker_code.strip().upper()
     if not clean_ticker.endswith(".IS"):
         clean_ticker += ".IS"
+
+    interval, period = interval_map.get(selected_period_str, ("5m", "1mo"))
 
     try:
         with st.spinner(f"{clean_ticker} verileri indiriliyor..."):
             t_obj = yf.Ticker(clean_ticker)
             news_list = t_obj.news
 
-            df = yf.download(clean_ticker, period="1mo", interval="5m", progress=False)
+            df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
@@ -315,8 +317,8 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
             else:
                 last_price = res["last_price"]
                 try:
-                    if manual_price_input.strip() != "":
-                        manual_price = float(manual_price_input.replace(",", "."))
+                    if manual_price_str.strip() != "":
+                        manual_price = float(manual_price_str.replace(",", "."))
                         if manual_price > 0: last_price = manual_price
                 except: pass
 
@@ -325,8 +327,10 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 current_time = datetime.now().strftime("%H:%M")
 
                 st.markdown("---")
-                st.markdown(f"🕒 `{current_time}` &nbsp;|&nbsp; **Hisse:** `{clean_ticker}` &nbsp;|&nbsp; **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}`")
-                st.markdown(f"🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}` &nbsp;|&nbsp; **GAP Durumu:** `{res['gap_status']}`")
+                # PERİYOT BİLGİSİ RAPORA EKLENDİ
+                st.markdown(f"⏱️ **Periyot:** `{selected_period_str}` &nbsp;|&nbsp; 🕒 `{current_time}` &nbsp;|&nbsp; **Hisse:** `{clean_ticker}`")
+                st.markdown(f"💰 **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
+                st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("--------------------------------------------------")
 
                 # İndikatör Kartları
@@ -339,7 +343,6 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{res['action_signal']}`")
                 st.markdown(f"📈 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Genel Durum: {res['total_positive']}/10 Olumlu)")
                 
-                # SİSTEM VE YAZILIM YORUMU (Eksik olan kısım eklendi)
                 st.info(f"🤖 **SİSTEM VE YAZILIM YORUMU:** {res['comment']}")
                 st.markdown("--------------------------------------------------")
 
@@ -353,7 +356,7 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 else:
                     st.write("Son günlerde özel bir haber akışı bulunamadı.")
 
-                # Grafikler (Çakışmayı önlemek için benzersiz key eklendi)
+                # Grafikler
                 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
                 fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
@@ -363,8 +366,6 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
                 fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
-                
-                # Benzersiz key ile çakışma hatası tamamen çözüldü
                 st.plotly_chart(fig, use_container_width=True, key=f"chart_{clean_ticker}")
 
     except Exception as e:
@@ -372,19 +373,21 @@ def render_stock_analysis(ticker_code, manual_price_input=""):
 
 # --- TAB 1: TEK HİSSE ANALİZİ ---
 with tab1:
-    col_t, col_m = st.columns(2)
+    col_t, col_p_sel, col_m = st.columns([0.4, 0.3, 0.3])
     with col_t:
         ticker_input = st.text_input("Hisse Kodu Girin", value=st.session_state['selected_ticker'].replace(".IS", ""))
+    with col_p_sel:
+        global_period_choice = st.selectbox("Analiz Periyodu", period_options, index=3)
     with col_m:
         manual_price_str = st.text_input("Ziraat Canlı Fiyat", value="")
 
     if st.button("Analizi Başlat"):
-        render_stock_analysis(ticker_input, manual_price_str)
+        render_stock_analysis(ticker_input, global_period_choice, manual_price_str)
 
 # --- TAB 2: İZLEME LİSTEM ---
 with tab2:
     st.subheader("📌 Takip Ettiğim Hisse Listesi")
-    st.write("Analiz etmek istediğiniz hisseye tıklayın, tüm detaylar anında alt tarafta açılacaktır.")
+    st.write("Analiz etmek istediğiniz hisseye tıklayın, varsayılan periyotla detaylar alt tarafta açılsın.")
     
     cols = st.columns(3)
     for idx, symbol in enumerate(WATCHLIST):
@@ -396,12 +399,12 @@ with tab2:
     if st.session_state.get('selected_ticker'):
         st.markdown("---")
         st.subheader(f"📌 {st.session_state['selected_ticker']} Anlık Analiz Raporu")
-        render_stock_analysis(st.session_state['selected_ticker'])
+        render_stock_analysis(st.session_state['selected_ticker'], "5 Dakika")
 
 # --- TAB 3: PORTFÖYÜM ---
 with tab3:
     st.subheader("💼 Portföyümdeki (Aldığım) Hisseler")
-    st.write("Elinizdeki hisselerin üzerine tıklayın, tüm detaylı analizleri anında alt tarafta açılsın.")
+    st.write("Elinizdeki hisselerin üzerine tıklayın, anlık periyot bilgisiyle detaylar alt tarafta açılsın.")
     
     cols_p = st.columns(3)
     for idx, symbol in enumerate(PORTFOLIO):
@@ -413,7 +416,7 @@ with tab3:
     if st.session_state.get('selected_ticker'):
         st.markdown("---")
         st.subheader(f"💼 {st.session_state['selected_ticker']} Anlık Portföy Analiz Raporu")
-        render_stock_analysis(st.session_state['selected_ticker'])
+        render_stock_analysis(st.session_state['selected_ticker'], "5 Dakika")
 
 # --- TAB 4: BIST TARAYICI ---
 with tab4:
