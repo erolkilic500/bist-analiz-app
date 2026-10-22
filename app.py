@@ -60,7 +60,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI VE KALICI LİSTE YÖNETİMİ
+# 🚀 UYGULAMA ANA KODLARI VE STATE TANIMLARI
 # ==============================================================================
 
 if 'selected_ticker' not in st.session_state:
@@ -71,7 +71,6 @@ if 'scan_results_df' not in st.session_state:
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
 
-# İzleme ve Portföy listelerini session_state ile koruma altına alıyoruz
 if 'watchlist' not in st.session_state:
     st.session_state['watchlist'] = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
 
@@ -91,9 +90,9 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("İzleme listenizi ve portföyünüzü doğrudan sekmelerden yönetebilir, eklediğiniz hisseleri güvenle takip edebilirsiniz.")
+st.write("İzleme listenizi ve portföyünüzü akıllı arama kutusuyla pratik şekilde yönetebilirsiniz.")
 
-BIST_500_TICKERS = [
+BIST_500_TICKERS = sorted([
     "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
     "AKBNK", "AKCNS", "AKFGY", "AKFYE", "AKGRT", "AKMGY", "AKSA", "AKSEN", "AKSGY", "AKSUE",
     "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", "ALKA", "ALKIM", "ALMAD", "ALTNY",
@@ -103,7 +102,7 @@ BIST_500_TICKERS = [
     "KOZAL", "KRDMD", "MAVI", "MIATK", "MGROS", "ODAS", "OTKAR", "OYAKC", "PETKM", "PGSUS",
     "SAHOL", "SASA", "SISE", "SKBNK", "SOKM", "TABGD", "TCELL", "TGSAS", "THYAO", "TOASO",
     "TUPRS", "ULKER", "VAKBN", "VESBE", "VESTL", "YKBNK", "ZOREN"
-]
+])
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "Tek Hisse Detaylı Analiz", 
@@ -389,7 +388,13 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
 with tab1:
     col_t, col_m = st.columns([0.6, 0.4])
     with col_t:
-        ticker_input = st.text_input("Hisse Kodu Girin", value=st.session_state['selected_ticker'].replace(".IS", ""))
+        # BIST 500 Otomatik arama kutusu
+        ticker_input = st.selectbox(
+            "Hisse Seçin veya Kodunu Yazın", 
+            options=BIST_500_TICKERS, 
+            index=BIST_500_TICKERS.index(st.session_state['selected_ticker']) if st.session_state['selected_ticker'] in BIST_500_TICKERS else 0,
+            key="tab1_ticker_select"
+        )
     with col_m:
         manual_price_str = st.text_input("Ziraat Canlı Fiyat (İsteğe Bağlı)", value="")
 
@@ -403,12 +408,19 @@ with tab2:
     with st.expander("➕ İzleme Listesine Yeni Hisse Ekle / Çıkar"):
         col_ew1, col_ew2 = st.columns(2)
         with col_ew1:
-            new_w = st.text_input("Eklenecek Hisse Kodu", key="new_w_input").upper().strip()
+            # Otomatik arama/tamamlama özellikli kutu
+            new_w = st.selectbox(
+                "Eklenecek Hisse (Yazarak Arayın)", 
+                options=["Seçiniz..."] + BIST_500_TICKERS, 
+                key="new_w_select"
+            )
             if st.button("Listeye Ekle", key="add_w_btn"):
-                if new_w and new_w not in st.session_state['watchlist']:
+                if new_w != "Seçiniz..." and new_w not in st.session_state['watchlist']:
                     st.session_state['watchlist'].append(new_w)
-                    st.success(f"{new_w} eklendi!")
+                    st.success(f"{new_w} izleme listesine eklendi!")
                     st.rerun()
+                elif new_w in st.session_state['watchlist']:
+                    st.warning("Bu hisse zaten izleme listenizde var.")
         with col_ew2:
             rem_w = st.selectbox("Listeden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w_tab")
             if st.button("Seçileni Sil", key="del_w_btn") and rem_w != "Seçiniz...":
@@ -434,12 +446,19 @@ with tab3:
     with st.expander("➕ Portföye Yeni Hisse Ekle / Çıkar"):
         col_ep1, col_ep2 = st.columns(2)
         with col_ep1:
-            new_p = st.text_input("Portföye Eklenecek Hisse Kodu", key="new_p_input").upper().strip()
+            # Otomatik arama/tamamlama özellikli kutu
+            new_p = st.selectbox(
+                "Portföye Eklenecek Hisse (Yazarak Arayın)", 
+                options=["Seçiniz..."] + BIST_500_TICKERS, 
+                key="new_p_select"
+            )
             if st.button("Portföye Ekle", key="add_p_btn"):
-                if new_p and new_p not in st.session_state['portfolio']:
+                if new_p != "Seçiniz..." and new_p not in st.session_state['portfolio']:
                     st.session_state['portfolio'].append(new_p)
                     st.success(f"{new_p} portföye eklendi!")
                     st.rerun()
+                elif new_p in st.session_state['portfolio']:
+                    st.warning("Bu hisse zaten portföyünüzde var.")
         with col_ep2:
             rem_p = st.selectbox("Portföyden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['portfolio'], key="rem_p_tab")
             if st.button("Portföyden Sil", key="del_p_btn") and rem_p != "Seçiniz...":
