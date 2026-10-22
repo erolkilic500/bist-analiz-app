@@ -84,7 +84,7 @@ if 'portfolio' not in st.session_state:
 
 col_head1, col_head2 = st.columns([0.8, 0.2])
 with col_head1:
-    st.title("BIST Pro Terminal: Portföy, İzleme & Analiz Paneli")
+    st.title("BIST Pro Terminal: Portföy, Temel & Teknik Analiz Paneli")
 with col_head2:
     st.write(f"👤 `{st.session_state['username']}`")
     if st.button("🚪 Çıkış Yap"):
@@ -95,7 +95,7 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("İzleme listenizi ve portföy kâr/zarar durumunuzu anlık olarak takip edin.")
+st.write("İzleme listenizi, temelleri güçlü hisseleri ve portföy durumunuzu anlık olarak takip edin.")
 
 BIST_500_TICKERS = sorted([
     "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
@@ -131,6 +131,67 @@ interval_map = {
     "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
 }
 
+def analyze_fundamental(ticker_obj):
+    """Şirketin Mali Yapısını, Kârlılığını, Borçluluk ve Değerleme Oranlarını Hesaplar."""
+    info = ticker_obj.info or {}
+    
+    pe_ratio = info.get('trailingPE', info.get('forwardPE', None)) # F/K
+    pb_ratio = info.get('priceToBook', None) # PD/DD
+    roe = info.get('returnOnEquity', None) # Özkaynak Kârlılığı
+    roa = info.get('returnOnAssets', None) # Aktif Kârlılık
+    current_ratio = info.get('currentRatio', None) # Cari Oran (Borç Ödeme Gücü)
+    debt_to_equity = info.get('debtToEquity', None) # Borç / Özkaynak (%)
+    gross_margins = info.get('grossMargins', None) # Brüt Kâr Marjı
+    operating_margins = info.get('operatingMargins', None) # Faaliyet Kâr Marjı
+    dividend_yield = info.get('dividendYield', 0.0) # Temettü Verimi
+    sector_name = info.get('sector', 'Belirtilmedi')
+
+    # Değerleme Durumu (Ucuz / Pahalı Tespiti)
+    valuation_status = "Nötr / Makul Değer"
+    fund_score = 50 # Varsayılan Temel Skor
+
+    if pb_ratio is not None and pe_ratio is not None:
+        if pb_ratio < 1.2 and pe_ratio < 8.0:
+            valuation_status = "🟢 İSKONTOLU / UCUZ (Defter Değerinin Altında veya Düşük F/K)"
+            fund_score += 25
+        elif pb_ratio > 4.5 or pe_ratio > 25.0:
+            valuation_status = "🔴 PAHALI / AŞIRI DEĞERLENMİŞ (Aşırı Yüksek F/K veya PD/DD)"
+            fund_score -= 20
+        else:
+            valuation_status = "🟡 MAKUL DEĞERLİ / SEKTÖR ORTALAMASINDA"
+            fund_score += 10
+    elif pb_ratio is not None and pb_ratio < 1.0:
+        valuation_status = "🟢 İSKONTOLU (PD/DD < 1.0 Defter Değeri Altında)"
+        fund_score += 20
+
+    # Borçluluk Tespiti
+    debt_status = "Sağlıklı Borç Yapısı"
+    if current_ratio is not None:
+        if current_ratio >= 1.5:
+            debt_status = "🟢 Çok Sağlıklı (Kısa Vadeli Borç Ödeme Gücü Yüksek)"
+            fund_score += 15
+        elif current_ratio < 1.0:
+            debt_status = "🔴 Borç Riski (Likidite Sıkıntısı Olabilir)"
+            fund_score -= 15
+
+    fund_score = min(max(fund_score, 10), 100) # 10 ile 100 arasında sınırla
+
+    return {
+        "pe_ratio": pe_ratio,
+        "pb_ratio": pb_ratio,
+        "roe": roe * 100 if roe else None,
+        "roa": roa * 100 if roa else None,
+        "current_ratio": current_ratio,
+        "debt_to_equity": debt_to_equity,
+        "gross_margins": gross_margins * 100 if gross_margins else None,
+        "operating_margins": operating_margins * 100 if operating_margins else None,
+        "dividend_yield": dividend_yield * 100 if dividend_yield else 0.0,
+        "sector_name": sector_name,
+        "valuation_status": valuation_status,
+        "debt_status": debt_status,
+        "fund_score": fund_score
+    }
+
 def analyze_df(df):
     if df.empty or len(df) < 10:
         return None
@@ -148,11 +209,10 @@ def analyze_df(df):
     elif curr_open < prev_low:
         gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
 
-    # Alıcı / Satıcı Hacim Baskısı Hesaplama (Son mum ve genel eğilim)
+    # Alıcı / Satıcı Hacim Baskısı
     total_vol = float(df['Volume'].sum())
     total_tl_vol = float((df['Close'] * df['Volume']).sum())
     
-    # Fiyat değişim yönüne göre hacim ağırlıklı alıcı/satıcı dağılımı
     price_diff = df['Close'].diff().fillna(0)
     buying_vol = float(df['Volume'][price_diff >= 0].sum())
     selling_vol = float(df['Volume'][price_diff < 0].sum())
@@ -175,6 +235,7 @@ def analyze_df(df):
     else:
         pressure_status = "🟡 HAFİF SATICILI (Dengeli / Negatif)"
 
+    # Teknik İndikatörler
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
@@ -182,14 +243,7 @@ def analyze_df(df):
     rsi = 100 - (100 / (1 + rs))
     val_rsi = float(rsi.iloc[-1])
     
-    if 40 <= val_rsi <= 70:
-        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
-    elif val_rsi < 30:
-        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip Adayı)", 8
-    elif val_rsi > 70:
-        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f} Aşırı Alım)", 4
-    else:
-        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 5
+    rsi_sig, rsi_score = (f"[ + ] (RSI: {val_rsi:.1f})", 9) if 40 <= val_rsi <= 70 else ((f"[ + ] (RSI: {val_rsi:.1f} Dip)", 8) if val_rsi < 30 else (f"[ - ] (RSI: {val_rsi:.1f})", 4))
 
     hl2 = (df['High'] + df['Low']) / 2
     st_trend = df['Close'].iloc[-1] > float(hl2.iloc[-1])
@@ -203,25 +257,19 @@ def analyze_df(df):
     stoch_cross_up = val_stoch_k > val_stoch_d and float(stoch_k.iloc[-2]) <= float(stoch_d.iloc[-2])
     stoch_cross_down = val_stoch_k < val_stoch_d and float(stoch_k.iloc[-2]) >= float(stoch_d.iloc[-2])
     
-    if val_stoch_k > val_stoch_d:
-        stoch_sig, stoch_score = f"[ + ] (%K: {val_stoch_k:.1f} > %D: {val_stoch_d:.1f})", (10 if val_stoch_k < 80 else 7)
-    else:
-        stoch_sig, stoch_score = f"[ - ] (%K: {val_stoch_k:.1f} < %D: {val_stoch_d:.1f})", 3
+    stoch_sig, stoch_score = (f"[ + ] (%K > %D)", 9) if val_stoch_k > val_stoch_d else (f"[ - ] (%K < %D)", 3)
 
     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
     macd_line = exp1 - exp2
     signal_line = macd_line.ewm(span=9, adjust=False).mean()
     val_macd, val_sig = float(macd_line.iloc[-1]), float(signal_line.iloc[-1])
-    if val_macd > val_sig:
-        macd_sig, macd_score = f"[ + ] (MACD: {val_macd:.2f} > Sig: {val_sig:.2f})", (10 if val_macd > 0 else 8)
-    else:
-        macd_sig, macd_score = f"[ - ] (MACD: {val_macd:.2f} < Sig: {val_sig:.2f})", 2
+    macd_sig, macd_score = (f"[ + ] (MACD Pozitif)", 9) if val_macd > val_sig else (f"[ - ] (MACD Negatif)", 2)
 
     vol_current = float(df['Volume'].iloc[-1])
     vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
     vol_high = vol_current > vol_ma
-    vol_sig, vol_score = (f"[ + ] (Hacim: {vol_current:,.0f} > Ort)", 9) if vol_high else (f"[ - ] (Hacim: {vol_current:,.0f} < Ort)", 4)
+    vol_sig, vol_score = (f"[ + ] (Hacim Yüksek)", 9) if vol_high else (f"[ - ] (Hacim Düşük)", 4)
 
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
@@ -232,18 +280,18 @@ def analyze_df(df):
     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
     val_ema20, val_ema50 = float(ema20.iloc[-1]), float(ema50.iloc[-1])
-    ema_sig, ema_score = (f"[ + ] (EMA20: {val_ema20:.2f} > EMA50: {val_ema50:.2f})", 10) if val_ema20 > val_ema50 else (f"[ - ] (EMA20: {val_ema20:.2f} < EMA50: {val_ema50:.2f})", 3)
+    ema_sig, ema_score = (f"[ + ] (EMA20 > EMA50)", 10) if val_ema20 > val_ema50 else (f"[ - ] (EMA20 < EMA50)", 3)
 
     ema_t1 = df['Close'].ewm(span=9).mean()
     ema_t2 = ema_t1.ewm(span=9).mean()
     ema_t3 = ema_t2.ewm(span=9).mean()
     tema = 3 * (ema_t1 - ema_t2) + ema_t3
     val_tema = float(tema.iloc[-1])
-    tema_sig, tema_score = (f"[ + ] (Fiyat > TEMA: {val_tema:.2f})", 9) if last_price > val_tema else (f"[ - ] (Fiyat < TEMA: {val_tema:.2f})", 4)
+    tema_sig, tema_score = (f"[ + ] (Fiyat > TEMA)", 9) if last_price > val_tema else (f"[ - ] (Fiyat < TEMA)", 4)
 
     bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
     val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
-    bb_sig, bb_score = (f"[ + ] (Fiyat > BB Ort: {val_bb:.2f})", 8) if last_price > val_bb else (f"[ - ] (Fiyat < BB Ort: {val_bb:.2f})", 4)
+    bb_sig, bb_score = (f"[ + ] (Fiyat > BB Ort)", 8) if last_price > val_bb else (f"[ - ] (Fiyat < BB Ort)", 4)
 
     high_low = df['High'] - df['Low']
     high_close = np.abs(df['High'] - df['Close'].shift())
@@ -252,54 +300,18 @@ def analyze_df(df):
     atr = tr.rolling(14).mean()
     val_atr = float(atr.iloc[-1])
     atr_ma = atr.rolling(30).mean().iloc[-1] if len(df) >= 30 else atr.mean()
-    atr_sig, atr_score = (f"[ + ] (ATR: {val_atr:.2f} Volatiliteli)", 7) if val_atr > float(atr_ma) else (f"[ - ] (ATR: {val_atr:.2f} Durgun)", 5)
+    atr_sig, atr_score = (f"[ + ] (ATR Volatiliteli)", 7) if val_atr > float(atr_ma) else (f"[ - ] (ATR Durgun)", 5)
 
     signals = [rsi_sig, st_sig, macd_sig, ema_sig, stoch_sig, vol_sig, obv_sig, tema_sig, bb_sig, atr_sig]
     scores = [rsi_score, st_score, stoch_score, macd_score, vol_score, obv_score, ema_score, tema_score, bb_score, atr_score]
     total_positive = sum(1 for s in signals if "[ + ]" in s)
-    total_score_sum = sum(scores)
-    avg_score = round(np.mean(scores), 1)
-
-    action_signal = "NÖTR"
-    if val_rsi < 35 and stoch_cross_up:
-        action_signal = "🚀 DİPTEN AL (Dip Dönüşü)"
-    elif val_rsi > 72 and stoch_cross_down:
-        action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Alım)"
-    elif last_price > val_bb and not vol_high and val_macd < val_sig:
-        action_signal = "🪤 BOĞA TUZAĞI (Düşük Hacim)"
-    elif last_price < val_bb and val_rsi < 35 and vol_high and stoch_cross_up:
-        action_signal = "🐻 AYI TUZAĞI (Silkeleme)"
-    elif val_ema20 > val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_up:
-        action_signal = "📈 ARA AL (Düzeltme Alımı)"
-    elif val_ema20 < val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_down:
-        action_signal = "📉 ARA SAT (Tepki Satışı)"
-    elif total_positive >= 8 and total_score_sum >= 75:
-        action_signal = "🟢 NET AL (Güçlü Yükseliş Trendi)"
-    elif total_positive <= 3 or total_score_sum <= 40:
-        action_signal = "🔴 NET SAT (Düşüş Trendi)"
-    elif total_positive >= 5:
-        action_signal = "🟡 BEKLE / İZLE (Nötr-Olumlu)"
-    else:
-        action_signal = "🟠 RİSKLİ / BEKLE"
-
-    comment = f"Hisse {total_score_sum}/100 teknik puana sahiptir. "
-    if "AL" in action_signal:
-        comment += "Teknik göstergeler momentumun alıcılar lehine döndüğünü gösteriyor. Stop-Loss seviyesine dikkat edilerek değerlendirilebilir."
-    elif "SAT" in action_signal:
-        comment += "Aşırı satım veya trend bozulması emareleri var. Yeni alım riski yüksek, kar realizasyonu düşünülebilir."
-    elif "TUZAĞI" in action_signal:
-        comment += "Hacim ve gösterge uyumsuzluğu mevcut. Yalancı kırılımlara karşı temkinli olunmalı."
-    else:
-        comment += "İndikatörler yatay/kararsız bir seyir gösteriyor. Net bir kırılım beklenmeli."
+    tech_score_sum = sum(scores)
 
     return {
         "last_price": last_price,
         "total_positive": total_positive,
-        "total_score_sum": total_score_sum,
-        "avg_score": avg_score,
-        "action_signal": action_signal,
+        "tech_score_sum": tech_score_sum,
         "gap_status": gap_status,
-        "comment": comment,
         "pressure_status": pressure_status,
         "buyer_pct": buyer_pct,
         "seller_pct": seller_pct,
@@ -307,6 +319,9 @@ def analyze_df(df):
         "selling_vol": selling_vol,
         "buyer_tl": buyer_tl,
         "seller_tl": seller_tl,
+        "val_rsi": val_rsi,
+        "stoch_cross_up": stoch_cross_up,
+        "stoch_cross_down": stoch_cross_down,
         "signals": {
             "RSI": (rsi_sig, rsi_score), "SuperTrend": (st_sig, st_score),
             "Stochastic": (stoch_sig, stoch_score), "MACD": (macd_sig, macd_score),
@@ -350,10 +365,14 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
     interval, period = interval_map.get(selected_period_str, ("5m", "1mo"))
 
     try:
-        with st.spinner(f"{clean_ticker} verileri indiriliyor..."):
+        with st.spinner(f"{clean_ticker} Temel ve Teknik verileri indiriliyor..."):
             t_obj = yf.Ticker(clean_ticker)
             news_list = t_obj.news
+            
+            # 1. Temel Analiz Verilerini Al
+            fund_res = analyze_fundamental(t_obj)
 
+            # 2. Teknik Analiz Verilerini Al
             df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
@@ -373,27 +392,71 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 stop_loss = last_price * (1 - 0.015)
                 take_profit = last_price * (1 + 0.05)
 
+                # HİBRİT SKOR HESAPLAMA (%60 Teknik + %40 Temel)
+                hybrid_score = int((res["tech_score_sum"] * 0.6) + (fund_res["fund_score"] * 0.4))
+
+                # HİBRİT SİNYAL VE AKSİYON BELİRLEME
+                action_signal = "NÖTR"
+                if res["val_rsi"] < 35 and res["stoch_cross_up"] and "UCUZ" in fund_res["valuation_status"]:
+                    action_signal = "🚀 DİPTEN AL (Güçlü Temel & Dip Dönüşü)"
+                elif "PAHALI" in fund_res["valuation_status"] and res["val_rsi"] > 70:
+                    action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Değerlenmiş)"
+                elif hybrid_score >= 75 and res["buyer_pct"] > 52:
+                    action_signal = "🟢 NET AL (Güçlü Temel & Yükseliş Trendi)"
+                elif hybrid_score <= 40 or "Borç Riski" in fund_res["debt_status"]:
+                    action_signal = "🔴 NET SAT / UZAK DUR (Zayıf Temel veya Düşüş)"
+                elif hybrid_score >= 55:
+                    action_signal = "🟡 BEKLE / İZLE (Nötr-Pozitif)"
+                else:
+                    action_signal = "🟠 RİSKLİ / TEMKİNLİ OL"
+
+                comment = f"Hisse hibrit değerlendirmede **{hybrid_score}/100** skora sahiptir. "
+                comment += f"Sektör: {fund_res['sector_name']}. Değerleme durumu: {fund_res['valuation_status']}. "
+                comment += f"Finansal borçluluk yapısı: {fund_res['debt_status']}."
+
+                # FİYAT BİLGİLERİ VE GAP DURUMU
                 st.markdown(f"💰 **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
-                st.markdown("--------------------------------------------------")
+                st.markdown("---")
 
+                # TEMEL ANALİZ VE RASYOLAR BÖLÜMÜ
+                st.subheader("🏛️ 1. ŞİRKET TEMEL ANALİZİ & RASYOLAR")
+                f1, f2, f3, f4 = st.columns(4)
+                with f1:
+                    st.metric("F/K Oranı", f"{fund_res['pe_ratio']:.2f}" if fund_res['pe_ratio'] else "N/A")
+                    st.metric("Cari Oran (Borç Gücü)", f"{fund_res['current_ratio']:.2f}" if fund_res['current_ratio'] else "N/A")
+                with f2:
+                    st.metric("PD/DD (Defter Değeri)", f"{fund_res['pb_ratio']:.2f}" if fund_res['pb_ratio'] else "N/A")
+                    st.metric("Özkaynak Kârlılığı (ROE)", f"%{fund_res['roe']:.1f}" if fund_res['roe'] else "N/A")
+                with f3:
+                    st.metric("Brüt Kâr Marjı", f"%{fund_res['gross_margins']:.1f}" if fund_res['gross_margins'] else "N/A")
+                    st.metric("Temettü Verimi", f"%{fund_res['dividend_yield']:.2f}")
+                with f4:
+                    st.write(f"🏢 **Sektör:** `{fund_res['sector_name']}`")
+                    st.write(f"💎 **Değerleme:** {fund_res['valuation_status']}")
+                    st.write(f"🏦 **Borçluluk:** {fund_res['debt_status']}")
+
+                st.markdown("---")
+
+                # TEKNİK İNDİKATÖRLER BÖLÜMÜ
+                st.subheader("📈 2. TEKNİK İNDİKATÖR SİNYALLERİ")
                 for name, (sig, sc) in res["signals"].items():
                     color_icon = "🟢" if sc >= 7 else ("🟡" if sc >= 5 else "🔴")
                     st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {color_icon} {get_status_label(sc)}")
-                    st.markdown("")
 
-                st.markdown("--------------------------------------------------")
-                # Alıcı / Satıcı Baskı ve Hacim Paneli
+                st.markdown("---")
+                # ALICI / SATICI BASKI PANENLİ
                 st.markdown(f"⚖️ **PİYASA ALIM / SATIM BASKISI & HACİM ANALİZİ:** `{res['pressure_status']}`")
                 st.markdown(f"🟢 **Alıcılar:** `%{res['buyer_pct']:.1f}` &nbsp; | &nbsp; **Lot:** `{res['buying_vol']:,.0f}` &nbsp; | &nbsp; **Hacim:** `₺{res['buyer_tl']:,.2f}`")
                 st.markdown(f"🔴 **Satıcılar:** `%{res['seller_pct']:.1f}` &nbsp; | &nbsp; **Lot:** `{res['selling_vol']:,.0f}` &nbsp; | &nbsp; **Hacim:** `₺{res['seller_tl']:,.2f}`")
-                st.markdown("--------------------------------------------------")
+                st.markdown("---")
 
-                st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{res['action_signal']}`")
-                st.markdown(f"📈 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Genel Durum: {res['total_positive']}/10 Olumlu)")
+                # ÖZEL SİNYAL VE GENEL SKOR
+                st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{action_signal}`")
+                st.markdown(f"🏆 **TOPLAM HİBRİT SKOR (TEMEL + TEKNİK):** &nbsp;&nbsp;&nbsp; `📈 {hybrid_score} / 100 Puan` &nbsp;&nbsp;&nbsp; (Teknik Skor: {res['tech_score_sum']}/100 | Temel Skor: {fund_res['fund_score']}/100)")
                 
-                st.info(f"🤖 **SİSTEM VE YAZILIM YORUMU:** {res['comment']}")
-                st.markdown("--------------------------------------------------")
+                st.info(f"🤖 **SİSTEM VE YAZILIM YORUMU:** {comment}")
+                st.markdown("---")
 
                 st.subheader("📰 Son Haber Akışı")
                 if news_list:
@@ -630,8 +693,8 @@ with tab4:
                     scan_results.append({
                         "Hisse Kodu": symbol,
                         "Son Fiyat (TL)": f"{res['last_price']:.2f}",
-                        "Aksiyon Sinyali": res["action_signal"],
-                        "Toplam Puan": res["total_score_sum"],
+                        "Aksiyon Sinyali": res["pressure_status"],
+                        "Teknik Puan": res["tech_score_sum"],
                         "Olumlu İndikatör": res["total_positive"]
                     })
             except:
@@ -642,7 +705,7 @@ with tab4:
 
         if scan_results:
             results_df = pd.DataFrame(scan_results)
-            results_df = results_df.sort_values(by=["Toplam Puan", "Olumlu İndikatör"], ascending=[False, False]).reset_index(drop=True)
+            results_df = results_df.sort_values(by=["Teknik Puan", "Olumlu İndikatör"], ascending=[False, False]).reset_index(drop=True)
             top_50_df = results_df.head(50)
             top_50_df.index = top_50_df.index + 1
             
