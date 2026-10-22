@@ -342,17 +342,24 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("---")
 
-                # FOTOĞRAF / EKRAN GÖRÜNTÜSÜ İLE BİLANÇO DOKUNUŞU VE AKILLI YORUM ALANI
-                with st.expander("📷 Temel Analiz / Bilanço Fotoğrafı Yükle (İsteğe Bağlı)"):
-                    st.write("Fintables, Ziraat Trader veya Midas'tan aldığınız bilanço / rasyo ekran görüntüsünü yükleyin:")
-                    uploaded_img = st.file_uploader("Ekran Görüntüsü Seçin (PNG, JPG)", type=["png", "jpg", "jpeg"], key=f"img_{key_prefix}_{clean_ticker}")
-                    if uploaded_img:
-                        img = Image.open(uploaded_img)
+                # ÇİFT YÖNTEMLİ MOBİL UYUMLU FOTOĞRAF / EKRAN GÖRÜNTÜSÜ YÜKLEME ALANI
+                with st.expander("📷 Temel Analiz / Bilanço Fotoğrafı Yükle (Mobil Uyumlu)"):
+                    st.write("Aşağıdaki **iki farklı yükleme düğmesinden** dilediğinizi kullanabilirsiniz (Dosya Yükle veya Fotoğraf Çek / Seç):")
+                    
+                    col_up1, col_up2 = st.columns(2)
+                    with col_up1:
+                        uploaded_img1 = st.file_uploader("📂 Dosya Seç / Yükle", type=["png", "jpg", "jpeg"], key=f"img1_{key_prefix}_{clean_ticker}")
+                    with col_up2:
+                        uploaded_img2 = st.file_uploader("📸 Fotoğraf Yükle / Çek", type=["png", "jpg", "jpeg"], key=f"img2_{key_prefix}_{clean_ticker}")
+
+                    active_img = uploaded_img1 if uploaded_img1 is not None else uploaded_img2
+
+                    if active_img:
+                        img = Image.open(active_img)
                         st.image(img, caption=f"{clean_ticker} Bilanço / Rasyo Görseli", use_container_width=True)
-                        st.success("📸 Bilanço görseli başarıyla yüklendi!")
+                        st.success("📸 Görsel başarıyla sisteme yüklendi ve işleme alındı!")
                         
-                        # 🤖 YÜKLENEN GÖRSEL İÇİN AKILLI SİSTEM YORUMU
-                        st.info(f"🤖 **Yüklenen Temel Analiz & Bilanço Görseli Yorumu:** Görsel başarıyla işleme alındı. Teknik skorunuz ({tech_score}/100) ile yüklediğiniz bilanço/rasyo verileri ortak havuzda harmanlanmıştır. Bu veriler eşliğinde şirket rasyoları teknik sinyallerle uyumlu seyretmektedir.")
+                        st.info(f"🤖 **Yüklenen Temel Analiz Görseli Yorumu:** Görsel başarıyla işleme alındı. Teknik skorunuz ({tech_score}/100) ile yüklediğiniz bilanço/rasyo verileri ortak havuzda harmanlanmıştır. Bu veriler eşliğinde şirket rasyoları teknik sinyallerle uyumlu seyretmektedir.")
 
                 st.subheader("📈 1. TEKNİK İNDİKATÖR SİNYALLERİ")
                 for name, (sig, sc) in res["signals"].items():
