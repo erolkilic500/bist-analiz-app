@@ -131,62 +131,88 @@ interval_map = {
     "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
 }
 
-def analyze_fundamental(ticker_obj):
-    """Şirketin Mali Yapısını, Kârlılığını, Borçluluk ve Değerleme Oranlarını Hesaplar."""
+def analyze_fundamental(ticker_obj, last_price):
+    """Şirketin Mali Yapısını, Bilanço Rasyolarını ve Değerleme Oranlarını Hesaplar."""
     info = ticker_obj.info or {}
     
-    pe_ratio = info.get('trailingPE', info.get('forwardPE', None)) # F/K
-    pb_ratio = info.get('priceToBook', None) # PD/DD
-    roe = info.get('returnOnEquity', None) # Özkaynak Kârlılığı
-    roa = info.get('returnOnAssets', None) # Aktif Kârlılık
-    current_ratio = info.get('currentRatio', None) # Cari Oran (Borç Ödeme Gücü)
-    debt_to_equity = info.get('debtToEquity', None) # Borç / Özkaynak (%)
-    gross_margins = info.get('grossMargins', None) # Brüt Kâr Marjı
-    operating_margins = info.get('operatingMargins', None) # Faaliyet Kâr Marjı
-    dividend_yield = info.get('dividendYield', 0.0) # Temettü Verimi
-    sector_name = info.get('sector', 'Belirtilmedi')
+    pe_ratio = info.get('trailingPE', info.get('forwardPE', None))
+    pb_ratio = info.get('priceToBook', None)
+    roe = info.get('returnOnEquity', None)
+    current_ratio = info.get('currentRatio', None)
+    dividend_yield = info.get('dividendYield', 0.0)
+    sector_name = info.get('sector', 'BIST Şirketi')
 
-    # Değerleme Durumu (Ucuz / Pahalı Tespiti)
+    # Eğer info üzerinden veriler boş geldiyse finansal tablolardan hesapla/tahmin et
+    try:
+        fin = ticker_obj.financials
+        bs = ticker_obj.balance_sheet
+        
+        if pe_ratio is None and not fin.empty:
+            net_income_rows = [r for r in fin.index if 'Net Income' in str(r)]
+            if net_income_rows and len(fin.loc[net_income_rows[0]]) > 0:
+                net_income = fin.loc[net_income_rows[0]].iloc[0]
+                shares = info.get('sharesOutstanding', None)
+                if shares and shares > 0:
+                      eps = net_income / shares
+                      if eps > 0:
+                          pe_ratio = last_price / eps
+
+        if pb_ratio is None and not bs.empty:
+            equity_rows = [r for r in bs.index if 'Stockholders Equity' in str(r) or 'Total Equity' in str(r)]
+            if equity_rows and len(bs.loc[equity_rows[0]]) > 0:
+                total_equity = bs.loc[equity_rows[0]].iloc[0]
+                shares = info.get('sharesOutstanding', None)
+                if shares and shares > 0:
+                    book_value_per_share = total_equity / shares
+                    if book_value_per_share > 0:
+                        pb_ratio = last_price / book_value_per_share
+
+        if current_ratio is None and not bs.empty:
+            ca_rows = [r for r in bs.index if 'Current Assets' in str(r)]
+            cl_rows = [r for r in bs.index if 'Current Liabilities' in str(r)]
+            if ca_rows and cl_rows:
+                ca = bs.loc[ca_rows[0]].iloc[0]
+                cl = bs.loc[cl_rows[0]].iloc[0]
+                if cl > 0:
+                    current_ratio = ca / cl
+    except:
+        pass
+
     valuation_status = "Nötr / Makul Değer"
-    fund_score = 50 # Varsayılan Temel Skor
+    fund_score = 50 
 
     if pb_ratio is not None and pe_ratio is not None:
-        if pb_ratio < 1.2 and pe_ratio < 8.0:
-            valuation_status = "🟢 İSKONTOLU / UCUZ (Defter Değerinin Altında veya Düşük F/K)"
+        if pb_ratio < 1.5 and pe_ratio < 10.0:
+            valuation_status = "🟢 İSKONTOLU / UCUZ (Düşük F/K ve PD/DD)"
             fund_score += 25
         elif pb_ratio > 4.5 or pe_ratio > 25.0:
-            valuation_status = "🔴 PAHALI / AŞIRI DEĞERLENMİŞ (Aşırı Yüksek F/K veya PD/DD)"
+            valuation_status = "🔴 PAHALI / AŞIRI DEĞERLENMİŞ"
             fund_score -= 20
         else:
-            valuation_status = "🟡 MAKUL DEĞERLİ / SEKTÖR ORTALAMASINDA"
+            valuation_status = "🟡 MAKUL DEĞERLİ"
             fund_score += 10
     elif pb_ratio is not None and pb_ratio < 1.0:
-        valuation_status = "🟢 İSKONTOLU (PD/DD < 1.0 Defter Değeri Altında)"
+        valuation_status = "🟢 İSKONTOLU (Defter Değeri Altında)"
         fund_score += 20
 
-    # Borçluluk Tespiti
     debt_status = "Sağlıklı Borç Yapısı"
     if current_ratio is not None:
         if current_ratio >= 1.5:
-            debt_status = "🟢 Çok Sağlıklı (Kısa Vadeli Borç Ödeme Gücü Yüksek)"
+            debt_status = "🟢 Çok Sağlıklı (Cari Oran İyi)"
             fund_score += 15
         elif current_ratio < 1.0:
-            debt_status = "🔴 Borç Riski (Likidite Sıkıntısı Olabilir)"
+            debt_status = "🔴 Borç Riski (Cari Oran Düşük)"
             fund_score -= 15
 
-    fund_score = min(max(fund_score, 10), 100) # 10 ile 100 arasında sınırla
+    fund_score = min(max(fund_score, 10), 100)
 
     return {
         "pe_ratio": pe_ratio,
         "pb_ratio": pb_ratio,
         "roe": roe * 100 if roe else None,
-        "roa": roa * 100 if roa else None,
         "current_ratio": current_ratio,
-        "debt_to_equity": debt_to_equity,
-        "gross_margins": gross_margins * 100 if gross_margins else None,
-        "operating_margins": operating_margins * 100 if operating_margins else None,
         "dividend_yield": dividend_yield * 100 if dividend_yield else 0.0,
-        "sector_name": sector_name,
+        "sector_name": sector_name if sector_name else "BIST Sektörü",
         "valuation_status": valuation_status,
         "debt_status": debt_status,
         "fund_score": fund_score
@@ -209,7 +235,6 @@ def analyze_df(df):
     elif curr_open < prev_low:
         gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
 
-    # Alıcı / Satıcı Hacim Baskısı
     total_vol = float(df['Volume'].sum())
     total_tl_vol = float((df['Close'] * df['Volume']).sum())
     
@@ -217,11 +242,8 @@ def analyze_df(df):
     buying_vol = float(df['Volume'][price_diff >= 0].sum())
     selling_vol = float(df['Volume'][price_diff < 0].sum())
     
-    if total_vol > 0:
-        buyer_pct = (buying_vol / total_vol) * 100
-        seller_pct = (selling_vol / total_vol) * 100
-    else:
-        buyer_pct, seller_pct = 50.0, 50.0
+    buyer_pct = (buying_vol / total_vol) * 100 if total_vol > 0 else 50.0
+    seller_pct = (selling_vol / total_vol) * 100 if total_vol > 0 else 50.0
 
     buyer_tl = total_tl_vol * (buyer_pct / 100)
     seller_tl = total_tl_vol * (seller_pct / 100)
@@ -235,7 +257,6 @@ def analyze_df(df):
     else:
         pressure_status = "🟡 HAFİF SATICILI (Dengeli / Negatif)"
 
-    # Teknik İndikatörler
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
@@ -365,14 +386,10 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
     interval, period = interval_map.get(selected_period_str, ("5m", "1mo"))
 
     try:
-        with st.spinner(f"{clean_ticker} Temel ve Teknik verileri indiriliyor..."):
+        with st.spinner(f"{clean_ticker} Temel ve Teknik verileri hesaplanıyor..."):
             t_obj = yf.Ticker(clean_ticker)
             news_list = t_obj.news
-            
-            # 1. Temel Analiz Verilerini Al
-            fund_res = analyze_fundamental(t_obj)
 
-            # 2. Teknik Analiz Verilerini Al
             df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
@@ -389,13 +406,14 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                         if manual_price > 0: last_price = manual_price
                 except: pass
 
+                # Temel Verileri Hesapla
+                fund_res = analyze_fundamental(t_obj, last_price)
+
                 stop_loss = last_price * (1 - 0.015)
                 take_profit = last_price * (1 + 0.05)
 
-                # HİBRİT SKOR HESAPLAMA (%60 Teknik + %40 Temel)
                 hybrid_score = int((res["tech_score_sum"] * 0.6) + (fund_res["fund_score"] * 0.4))
 
-                # HİBRİT SİNYAL VE AKSİYON BELİRLEME
                 action_signal = "NÖTR"
                 if res["val_rsi"] < 35 and res["stoch_cross_up"] and "UCUZ" in fund_res["valuation_status"]:
                     action_signal = "🚀 DİPTEN AL (Güçlü Temel & Dip Dönüşü)"
@@ -414,7 +432,6 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 comment += f"Sektör: {fund_res['sector_name']}. Değerleme durumu: {fund_res['valuation_status']}. "
                 comment += f"Finansal borçluluk yapısı: {fund_res['debt_status']}."
 
-                # FİYAT BİLGİLERİ VE GAP DURUMU
                 st.markdown(f"💰 **Alış:** `{last_price:.2f}` &nbsp;|&nbsp; **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("---")
@@ -423,13 +440,12 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.subheader("🏛️ 1. ŞİRKET TEMEL ANALİZİ & RASYOLAR")
                 f1, f2, f3, f4 = st.columns(4)
                 with f1:
-                    st.metric("F/K Oranı", f"{fund_res['pe_ratio']:.2f}" if fund_res['pe_ratio'] else "N/A")
+                    st.metric("F/K Oranı", f"{fund_res['pe_ratio']:.2f}" if fund_res['pe_ratio'] else "Hesaplanıyor / Veri Yok")
                     st.metric("Cari Oran (Borç Gücü)", f"{fund_res['current_ratio']:.2f}" if fund_res['current_ratio'] else "N/A")
                 with f2:
-                    st.metric("PD/DD (Defter Değeri)", f"{fund_res['pb_ratio']:.2f}" if fund_res['pb_ratio'] else "N/A")
+                    st.metric("PD/DD (Defter Değeri)", f"{fund_res['pb_ratio']:.2f}" if fund_res['pb_ratio'] else "Hesaplanıyor / Veri Yok")
                     st.metric("Özkaynak Kârlılığı (ROE)", f"%{fund_res['roe']:.1f}" if fund_res['roe'] else "N/A")
                 with f3:
-                    st.metric("Brüt Kâr Marjı", f"%{fund_res['gross_margins']:.1f}" if fund_res['gross_margins'] else "N/A")
                     st.metric("Temettü Verimi", f"%{fund_res['dividend_yield']:.2f}")
                 with f4:
                     st.write(f"🏢 **Sektör:** `{fund_res['sector_name']}`")
@@ -438,20 +454,17 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
 
                 st.markdown("---")
 
-                # TEKNİK İNDİKATÖRLER BÖLÜMÜ
                 st.subheader("📈 2. TEKNİK İNDİKATÖR SİNYALLERİ")
                 for name, (sig, sc) in res["signals"].items():
                     color_icon = "🟢" if sc >= 7 else ("🟡" if sc >= 5 else "🔴")
                     st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {color_icon} {get_status_label(sc)}")
 
                 st.markdown("---")
-                # ALICI / SATICI BASKI PANENLİ
                 st.markdown(f"⚖️ **PİYASA ALIM / SATIM BASKISI & HACİM ANALİZİ:** `{res['pressure_status']}`")
                 st.markdown(f"🟢 **Alıcılar:** `%{res['buyer_pct']:.1f}` &nbsp; | &nbsp; **Lot:** `{res['buying_vol']:,.0f}` &nbsp; | &nbsp; **Hacim:** `₺{res['buyer_tl']:,.2f}`")
                 st.markdown(f"🔴 **Satıcılar:** `%{res['seller_pct']:.1f}` &nbsp; | &nbsp; **Lot:** `{res['selling_vol']:,.0f}` &nbsp; | &nbsp; **Hacim:** `₺{res['seller_tl']:,.2f}`")
                 st.markdown("---")
 
-                # ÖZEL SİNYAL VE GENEL SKOR
                 st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{action_signal}`")
                 st.markdown(f"🏆 **TOPLAM HİBRİT SKOR (TEMEL + TEKNİK):** &nbsp;&nbsp;&nbsp; `📈 {hybrid_score} / 100 Puan` &nbsp;&nbsp;&nbsp; (Teknik Skor: {res['tech_score_sum']}/100 | Temel Skor: {fund_res['fund_score']}/100)")
                 
