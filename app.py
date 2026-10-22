@@ -13,17 +13,22 @@ from PIL import Image
 st.set_page_config(page_title="BIST Pro Terminal & Portfoy Paneli", layout="wide")
 
 # ==============================================================================
-# 💾 KALICI VERİ SAKLAMA (JSON) MEKANİZMASI
+# 💾 KALICI VERİ VE KLASÖR SAKLAMA MEKANİZMASI
 # ==============================================================================
 DATA_FILE = "user_data.json"
+UPLOAD_DIR = "uploaded_images"
+
+# Fotoğrafların saklanacağı klasörü oluştur
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 def load_user_data():
-    """Kullanıcının kaydettiği izleme listesi ve portföy verilerini JSON dosyasından okur."""
+    """Kullanıcının kaydettiği izleme listesi, portföy ve görsel yollarını JSON dosyasından okur."""
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data.get("watchlist", []), data.get("portfolio", {})
+                return data.get("watchlist", []), data.get("portfolio", {}), data.get("images", {})
         except Exception as e:
             pass
     # Varsayılan ilk veriler
@@ -34,14 +39,15 @@ def load_user_data():
         "GARAN": {"cost": 110.20, "lots": 250},
         "KCHOL": {"cost": 180.00, "lots": 150}
     }
-    return default_watchlist, default_portfolio
+    return default_watchlist, default_portfolio, {}
 
 def save_user_data():
-    """Değişiklik yapıldığında verileri anında JSON dosyasına yazıp kalıcı yapar."""
+    """Değişiklik yapıldığında verileri ve görsel yollarını anında JSON dosyasına kalıcı yazar."""
     try:
         data = {
             "watchlist": st.session_state['watchlist'],
-            "portfolio": st.session_state['portfolio']
+            "portfolio": st.session_state['portfolio'],
+            "images": st.session_state['saved_images']
         }
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
@@ -102,14 +108,16 @@ if not st.session_state["authenticated"]:
 # 🚀 UYGULAMA ANA KODLARI VE KALICI LİSTELER
 # ==============================================================================
 
-# İlk yüklemede kalıcı verileri dosyadan çek
-saved_watchlist, saved_portfolio = load_user_data()
+saved_watchlist, saved_portfolio, saved_images = load_user_data()
 
 if 'watchlist' not in st.session_state:
     st.session_state['watchlist'] = saved_watchlist
 
 if 'portfolio' not in st.session_state:
     st.session_state['portfolio'] = saved_portfolio
+
+if 'saved_images' not in st.session_state:
+    st.session_state['saved_images'] = saved_images
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -378,9 +386,9 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("---")
 
-                # ÇİFT YÖNTEMLİ MOBİL UYUMLU FOTOĞRAF / EKRAN GÖRÜNTÜSÜ YÜKLEME ALANI
-                with st.expander("📷 Temel Analiz / Bilanço Fotoğrafı Yükle (Mobil Uyumlu)"):
-                    st.write("Aşağıdaki **iki farklı yükleme düğmesinden** dilediğinizi kullanabilirsiniz:")
+                # 📷 KALICI FOTOĞRAF / EKRAN GÖRÜNTÜSÜ YÜKLEME ALANI
+                with st.expander("📷 Temel Analiz / Bilanço Fotoğrafı Yükle (Kalıcı & Mobil Uyumlu)"):
+                    st.write("Aşağıdaki düğmelerden yüklediğiniz fotoğraflar siz değiştirmediğiniz sürece **kalıcı olarak saklanır**:")
                     
                     col_up1, col_up2 = st.columns(2)
                     with col_up1:
@@ -391,11 +399,31 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                     active_img = uploaded_img1 if uploaded_img1 is not None else uploaded_img2
 
                     if active_img:
-                        img = Image.open(active_img)
-                        st.image(img, caption=f"{clean_ticker} Bilanço / Rasyo Görseli", use_container_width=True)
-                        st.success("📸 Görsel başarıyla sisteme yüklendi ve işleme alındı!")
+                        # Resmi sunucu klasörüne kalıcı olarak kaydet
+                        img_filename = f"{clean_ticker}_{uuid.uuid4().hex[:6]}.png"
+                        img_path = os.path.join(UPLOAD_DIR, img_filename)
                         
-                        st.info(f"🤖 **Yüklenen Temel Analiz Görseli Yorumu:** Görsel başarıyla işleme alındı. Teknik skorunuz ({tech_score}/100) ile yüklediğiniz bilanço/rasyo verileri ortak havuzda harmanlanmıştır.")
+                        image_obj = Image.open(active_img)
+                        image_obj.save(img_path)
+                        
+                        # Dosya yolunu session'a ve JSON'a kaydet
+                        st.session_state['saved_images'][clean_ticker] = img_path
+                        save_user_data()
+                        st.success("📸 Görsel sunucuya kalıcı olarak kaydedildi!")
+
+                    # Eğer daha önceden bu hisse için kaydedilmiş bir fotoğraf varsa onu göster
+                    if clean_ticker in st.session_state['saved_images'] and os.path.exists(st.session_state['saved_images'][clean_ticker]):
+                        saved_path = st.session_state['saved_images'][clean_ticker]
+                        st.image(saved_path, caption=f"{clean_ticker} Kayıtlı Bilanço / Rasyo Görseli", use_container_width=True)
+                        if st.button(f"🗑️ Bu Fotoğrafı Sil", key=f"del_img_{clean_ticker}"):
+                            del st.session_state['saved_images'][clean_ticker]
+                            save_user_data()
+                            if os.path.exists(saved_path):
+                                os.remove(saved_path)
+                            st.success("Fotoğraf silindi.")
+                            st.rerun()
+
+                        st.info(f"🤖 **Yüklenen Temel Analiz Görseli Yorumu:** Görsel hafızada kalıcıdır. Teknik skorunuz ({tech_score}/100) ile yüklediğiniz bilanço/rasyo verileri harmanlanmıştır.")
 
                 st.subheader("📈 1. TEKNİK İNDİKATÖR SİNYALLERİ")
                 for name, (sig, sc) in res["signals"].items():
@@ -467,7 +495,7 @@ with tab2:
             if st.button("Listeye Ekle", key="add_w_btn"):
                 if new_w != "Seçiniz..." and new_w not in st.session_state['watchlist']:
                     st.session_state['watchlist'].append(new_w)
-                    save_user_data()  # 💾 JSON Dosyasına Kaydet
+                    save_user_data()
                     st.success(f"{new_w} izleme listesine eklendi ve kalıcı kaydedildi!")
                     st.rerun()
                 elif new_w in st.session_state['watchlist']:
@@ -476,7 +504,7 @@ with tab2:
             rem_w = st.selectbox("Listeden Çıkarılacak Hisse", ["Seçiniz..."] + st.session_state['watchlist'], key="rem_w_tab")
             if st.button("Seçileni Sil", key="del_w_btn") and rem_w != "Seçiniz...":
                 st.session_state['watchlist'].remove(rem_w)
-                save_user_data()  # 💾 JSON Dosyasına Kaydet
+                save_user_data()
                 st.success(f"{rem_w} çıkarıldı ve kalıcı güncellendi!")
                 st.rerun()
 
@@ -531,7 +559,7 @@ with tab3:
                         "cost": parsed_cost,
                         "lots": int(lot_val)
                     }
-                    save_user_data()  # 💾 JSON Dosyasına Kaydet
+                    save_user_data()
                     st.success(f"{new_p} portföye eklendi ve kalıcı kaydedildi!")
                     st.rerun()
 
@@ -545,7 +573,7 @@ with tab3:
             st.write("")
             if st.button("Portföyden Sil", key="del_p_btn") and rem_p != "Seçiniz...":
                 del st.session_state['portfolio'][rem_p]
-                save_user_data()  # 💾 JSON Dosyasına Kaydet
+                save_user_data()
                 st.success(f"{rem_p} portföyden çıkarıldı ve kalıcı güncellendi!")
                 st.rerun()
 
