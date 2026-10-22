@@ -74,7 +74,6 @@ if 'scan_completed_msg' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state['watchlist'] = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
 
-# Portföy verisi: {symbol: {"cost": float, "lots": int}}
 if 'portfolio' not in st.session_state:
     st.session_state['portfolio'] = {
         "TGSAS": {"cost": 120.00, "lots": 100},
@@ -149,7 +148,6 @@ def analyze_df(df):
     elif curr_open < prev_low:
         gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
 
-    # 1. RSI
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
@@ -166,12 +164,10 @@ def analyze_df(df):
     else:
         rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 5
 
-    # 2. SuperTrend
     hl2 = (df['High'] + df['Low']) / 2
     st_trend = df['Close'].iloc[-1] > float(hl2.iloc[-1])
     st_sig, st_score = ("[ + ] (Yükseliş Trendi)", 10) if st_trend else ("[ - ] (Düşüş Trendi)", 2)
 
-    # 3. Stochastic
     low_14 = df['Low'].rolling(14).min()
     high_14 = df['High'].rolling(14).max()
     stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
@@ -185,7 +181,6 @@ def analyze_df(df):
     else:
         stoch_sig, stoch_score = f"[ - ] (%K: {val_stoch_k:.1f} < %D: {val_stoch_d:.1f})", 3
 
-    # 4. MACD
     exp1 = df['Close'].ewm(span=12, adjust=False).mean()
     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
     macd_line = exp1 - exp2
@@ -196,26 +191,22 @@ def analyze_df(df):
     else:
         macd_sig, macd_score = f"[ - ] (MACD: {val_macd:.2f} < Sig: {val_sig:.2f})", 2
 
-    # 5. Hacim
     vol_current = float(df['Volume'].iloc[-1])
     vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
     vol_high = vol_current > vol_ma
     vol_sig, vol_score = (f"[ + ] (Hacim: {vol_current:,.0f} > Ort)", 9) if vol_high else (f"[ - ] (Hacim: {vol_current:,.0f} < Ort)", 4)
 
-    # 6. OBV
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
     val_obv = float(obv.iloc[-1])
     val_obv_ma = float(obv_ma.iloc[-1]) if isinstance(obv_ma, pd.Series) else float(obv_ma)
     obv_sig, obv_score = ("[ + ] (OBV > Ort)", 8) if val_obv > val_obv_ma else ("[ - ] (OBV < Ort)", 4)
 
-    # 7. EMA 20/50
     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
     val_ema20, val_ema50 = float(ema20.iloc[-1]), float(ema50.iloc[-1])
     ema_sig, ema_score = (f"[ + ] (EMA20: {val_ema20:.2f} > EMA50: {val_ema50:.2f})", 10) if val_ema20 > val_ema50 else (f"[ - ] (EMA20: {val_ema20:.2f} < EMA50: {val_ema50:.2f})", 3)
 
-    # 8. TEMA
     ema_t1 = df['Close'].ewm(span=9).mean()
     ema_t2 = ema_t1.ewm(span=9).mean()
     ema_t3 = ema_t2.ewm(span=9).mean()
@@ -223,12 +214,10 @@ def analyze_df(df):
     val_tema = float(tema.iloc[-1])
     tema_sig, tema_score = (f"[ + ] (Fiyat > TEMA: {val_tema:.2f})", 9) if last_price > val_tema else (f"[ - ] (Fiyat < TEMA: {val_tema:.2f})", 4)
 
-    # 9. Bollinger
     bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
     val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
     bb_sig, bb_score = (f"[ + ] (Fiyat > BB Ort: {val_bb:.2f})", 8) if last_price > val_bb else (f"[ - ] (Fiyat < BB Ort: {val_bb:.2f})", 4)
 
-    # 10. ATR
     high_low = df['High'] - df['Low']
     high_close = np.abs(df['High'] - df['Close'].shift())
     low_close = np.abs(df['Low'] - df['Close'].shift())
@@ -473,7 +462,9 @@ with tab3:
                     if parsed_cost <= 0:
                         try:
                             df_temp = yf.download(f"{new_p}.IS", period="1d", interval="1m", progress=False)
-                            parsed_cost = float(df_temp['Close'].iloc[-1])
+                            if isinstance(df_temp.columns, pd.MultiIndex):
+                                df_temp.columns = df_temp.columns.get_level_values(0)
+                            parsed_cost = float(df_temp['Close'].dropna().iloc[-1])
                         except:
                             parsed_cost = 0.0
 
@@ -509,4 +500,4 @@ with tab3:
                 lots = info["lots"]
                 
                 try:
-                    df_p = yf.download(t_code,
+                    df_p = yf.
