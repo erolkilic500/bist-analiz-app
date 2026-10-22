@@ -77,7 +77,7 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("Izleme listenizi ve elinizdeki hisseleri anlik takip edin, tek tikla detayli analize gecin.")
+st.write("Izleme listenizi ve elinizdeki hisseleri anlik takip edin, tek tikla tum detaylari aninda gorun.")
 
 if 'selected_ticker' not in st.session_state:
     st.session_state['selected_ticker'] = "THYAO"
@@ -276,6 +276,74 @@ def analyze_df(df):
         "stoch_k": stoch_k, "stoch_d": stoch_d
     }
 
+def render_stock_analysis(ticker_code, manual_price_input=""):
+    """Seçilen hissenin analizini, haberlerini ve grafiklerini çizen yardımcı fonksiyon"""
+    clean_ticker = ticker_code.strip().upper()
+    if not clean_ticker.endswith(".IS"):
+        clean_ticker += ".IS"
+
+    try:
+        with st.spinner(f"{clean_ticker} verileri ve haberleri yukleniyor..."):
+            t_obj = yf.Ticker(clean_ticker)
+            news_list = t_obj.news
+
+            df = yf.download(clean_ticker, period="1mo", interval="5m", progress=False)
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
+            
+            res = analyze_df(df)
+            if not res:
+                st.error("Yeterli veri bulunamadi.")
+            else:
+                last_price = res["last_price"]
+                try:
+                    if manual_price_input.strip() != "":
+                        manual_price = float(manual_price_input.replace(",", "."))
+                        if manual_price > 0:
+                            last_price = manual_price
+                except:
+                    pass
+
+                stop_loss = last_price * (1 - 0.015)
+                take_profit = last_price * (1 + 0.05)
+                current_time = datetime.now().strftime("%H:%M")
+
+                st.markdown("---")
+                st.markdown(f"Saat: `{current_time}` | Hisse: `{clean_ticker}` | Fiyat: `{last_price:.2f}` | TP (%5): `{take_profit:.2f}`")
+                st.markdown(f"Stop-Loss (%1.5): `{stop_loss:.2f}` | GAP Durumu: `{res['gap_status']}`")
+                st.markdown("--------------------------------------------------")
+
+                st.markdown(f"AKSIYON SINYALI: `{res['action_signal']}`")
+                st.markdown(f"TOPLAM TEKNIK PUAN: `{res['total_score_sum']} / 100` ({res['total_positive']}/10 Olumlu)")
+                st.info(f"SISTEM YORUMU: {res['comment']}")
+                st.markdown("--------------------------------------------------")
+
+                st.subheader("Hisse Haberleri")
+                if news_list:
+                    for n in news_list[:4]:
+                        title_txt = n.get('title', 'Baslik Yok')
+                        publisher_txt = n.get('publisher', 'Haber')
+                        link_txt = n.get('link', '#')
+                        st.markdown(f"- [{publisher_txt}] [{title_txt}]({link_txt})")
+                else:
+                    st.write("Son gunlerde ozel bir haber bulunamadi.")
+
+                fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
+                fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode="lines", name="EMA 50", line=dict(color="dodgerblue", width=1.2)), row=1, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["macd_line"], mode="lines", name="MACD", line=dict(color="cyan", width=1.5)), row=2, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["signal_line"], mode="lines", name="MACD Sinyal", line=dict(color="magenta", width=1.5)), row=2, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
+                fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
+                
+                fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
+                st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Hata olustu: {e}")
+
 # --- TAB 1 ---
 with tab1:
     col_t, col_m = st.columns(2)
@@ -284,104 +352,44 @@ with tab1:
     with col_m:
         manual_price_str = st.text_input("Ziraat Canli Fiyat", value="")
 
-    clean_ticker = ticker_input.strip().upper()
-    if not clean_ticker.endswith(".IS"):
-        clean_ticker += ".IS"
-
-    period_choice = st.selectbox("Periyot Secin", period_options, index=3)
-    interval, period = interval_map.get(period_choice, ("5m", "1mo"))
-
-    if st.button("Analizi Baslat") or st.session_state.get('auto_run', False):
-        st.session_state['auto_run'] = False
-        try:
-            with st.spinner("Veriler indiriliyor..."):
-                t_obj = yf.Ticker(clean_ticker)
-                news_list = t_obj.news
-
-                df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.get_level_values(0)
-                df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
-                
-                res = analyze_df(df)
-                if not res:
-                    st.error("Yeterli veri bulunamadi.")
-                else:
-                    last_price = res["last_price"]
-                    try:
-                        if manual_price_str.strip() != "":
-                            manual_price = float(manual_price_str.replace(",", "."))
-                            if manual_price > 0:
-                                last_price = manual_price
-                    except:
-                        pass
-
-                    stop_loss = last_price * (1 - 0.015)
-                    take_profit = last_price * (1 + 0.05)
-                    current_time = datetime.now().strftime("%H:%M")
-
-                    st.markdown("---")
-                    st.markdown(f"Saat: {current_time} | Hisse: {clean_ticker} | Fiyat: {last_price:.2f} | TP: {take_profit:.2f}")
-                    st.markdown(f"Stop-Loss: {stop_loss:.2f} | GAP: {res['gap_status']}")
-                    st.markdown("--------------------------------------------------")
-
-                    st.markdown(f"AKSIYON: {res['action_signal']}")
-                    st.markdown(f"PUAN: {res['total_score_sum']} / 100 ({res['total_positive']}/10 Olumlu)")
-                    st.info(f"YORUM: {res['comment']}")
-                    st.markdown("--------------------------------------------------")
-
-                    st.subheader("Haberler")
-                    if news_list:
-                        for n in news_list[:4]:
-                            title_txt = n.get('title', 'Baslik Yok')
-                            publisher_txt = n.get('publisher', 'Haber')
-                            link_txt = n.get('link', '#')
-                            st.markdown(f"- [{publisher_txt}] [{title_txt}]({link_txt})")
-                    else:
-                        st.write("Haber bulunamadi.")
-
-                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.2, 0.2])
-                    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Mumlar"), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["ema20"], mode="lines", name="EMA 20", line=dict(color="orange", width=1.2)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["ema50"], mode="lines", name="EMA 50", line=dict(color="dodgerblue", width=1.2)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["macd_line"], mode="lines", name="MACD", line=dict(color="cyan", width=1.5)), row=2, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["signal_line"], mode="lines", name="MACD Sinyal", line=dict(color="magenta", width=1.5)), row=2, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_k"], mode="lines", name="Stoch K", line=dict(color="yellow", width=1.5)), row=3, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=res["stoch_d"], mode="lines", name="Stoch D", line=dict(color="red", width=1.5)), row=3, col=1)
-                    
-                    fig.update_layout(template="plotly_dark", height=650, margin=dict(l=10, r=10, t=30, b=10))
-                    st.plotly_chart(fig, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Hata olustu: {e}")
+    if st.button("Analizi Baslat"):
+        render_stock_analysis(ticker_input, manual_price_str)
 
 # --- TAB 2 ---
 with tab2:
     st.subheader("Izleme Listem")
-    st.write("Analiz etmek istediginiz hisseye tiklayin.")
+    st.write("Analiz etmek istediginiz hisseye tiklayin, tum detaylar aninda alt tarafta acilacaktir.")
     
     cols = st.columns(3)
     for idx, symbol in enumerate(WATCHLIST):
         with cols[idx % 3]:
             st.markdown(f"### {symbol}")
-            if st.button(f"{symbol} Analiz Et", key=f"watch_{symbol}"):
+            if st.button(f"{symbol} Detayli Analiz Et", key=f"watch_{symbol}"):
                 st.session_state['selected_ticker'] = symbol
-                st.session_state['auto_run'] = True
-                st.success(f"{symbol} secildi! 'Tek Hisse Detayli Analiz' sekmesine gecebilirsiniz.")
+
+    # Butona basıldığı an analizi doğrudan bu sekmenin altına yükler
+    if st.session_state.get('selected_ticker'):
+        st.markdown("---")
+        st.subheader(f"📌 {st.session_state['selected_ticker']} Anlik Analiz Raporu")
+        render_stock_analysis(st.session_state['selected_ticker'])
 
 # --- TAB 3 ---
 with tab3:
     st.subheader("Portfoyum")
-    st.write("Elinizdeki hisseleri inceleyin.")
+    st.write("Elinizdeki hisselerin uzerine tiklayin, tum analizleri aninda alt tarafta acilsin.")
     
     cols_p = st.columns(3)
     for idx, symbol in enumerate(PORTFOLIO):
         with cols_p[idx % 3]:
             st.markdown(f"### {symbol}")
-            if st.button(f"{symbol} Detay", key=f"port_{symbol}"):
+            if st.button(f"{symbol} Detayli Analiz Et", key=f"port_{symbol}"):
                 st.session_state['selected_ticker'] = symbol
-                st.session_state['auto_run'] = True
-                st.success(f"{symbol} secildi! 'Tek Hisse Detayli Analiz' sekmesine gecebilirsiniz.")
+
+    # Butona basıldığı an analizi doğrudan bu sekmenin altına yükler
+    if st.session_state.get('selected_ticker'):
+        st.markdown("---")
+        st.subheader(f"💼 {st.session_state['selected_ticker']} Anlik Portfoy Analiz Raporu")
+        render_stock_analysis(st.session_state['selected_ticker'])
 
 # --- TAB 4 ---
 with tab4:
@@ -434,7 +442,7 @@ with tab4:
             st.session_state['scan_completed_msg'] = f"Tarama tamamlandi! En guclu {len(top_50_df)} hisse listelenmistir."
         else:
             st.session_state['scan_results_df'] = None
-            st.session_state['scan_completed_msg'] = "Kriterlere uygun hisse bulunamadi."
+            st.session_state['scan_completed_msg'] = "Secilen kriterlere uyan hisse bulunamadi."
 
     if st.session_state['scan_completed_msg']:
         if st.session_state['scan_results_df'] is not None and not st.session_state['scan_results_df'].empty:
