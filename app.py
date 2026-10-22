@@ -18,12 +18,10 @@ st.set_page_config(page_title="BIST Pro Terminal & Portfoy Paneli", layout="wide
 DATA_FILE = "user_data.json"
 UPLOAD_DIR = "uploaded_images"
 
-# Fotoğrafların saklanacağı klasörü oluştur
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
 def load_user_data():
-    """Kullanıcının kaydettiği izleme listesi, portföy ve görsel yollarını JSON dosyasından okur."""
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -31,7 +29,6 @@ def load_user_data():
                 return data.get("watchlist", []), data.get("portfolio", {}), data.get("images", {})
         except Exception as e:
             pass
-    # Varsayılan ilk veriler
     default_watchlist = ["THYAO", "ASELS", "EREGL", "TUPRS", "SASA", "BIMAS"]
     default_portfolio = {
         "TGSAS": {"cost": 120.00, "lots": 100},
@@ -42,7 +39,6 @@ def load_user_data():
     return default_watchlist, default_portfolio, {}
 
 def save_user_data():
-    """Değişiklik yapıldığında verileri ve görsel yollarını anında JSON dosyasına kalıcı yazar."""
     try:
         data = {
             "watchlist": st.session_state['watchlist'],
@@ -386,9 +382,10 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                 st.markdown(f"📊 **GAP Durumu:** `{res['gap_status']}`")
                 st.markdown("---")
 
-                # 📷 KALICI FOTOĞRAF / EKRAN GÖRÜNTÜSÜ YÜKLEME ALANI
+                # 📷 UYARI MESAJLI KALICI FOTOĞRAF YÜKLEME ALANI
                 with st.expander("📷 Temel Analiz / Bilanço Fotoğrafı Yükle (Kalıcı & Mobil Uyumlu)"):
-                    st.write("Aşağıdaki düğmelerden yüklediğiniz fotoğraflar siz değiştirmediğiniz sürece **kalıcı olarak saklanır**:")
+                    st.warning("⚠️ **Dikkat: Yüklediğiniz fotoğraf güncel döneme (en son açıklanan bilançoya) mi ait?** Eski dönem fotoğrafları yanlış yönlendirebilir.")
+                    st.write("Aşağıdaki düğmelerden yüklediğiniz fotoğraflar siz değiştirmediğiniz sürece kalıcı olarak saklanır:")
                     
                     col_up1, col_up2 = st.columns(2)
                     with col_up1:
@@ -399,19 +396,16 @@ def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input="")
                     active_img = uploaded_img1 if uploaded_img1 is not None else uploaded_img2
 
                     if active_img:
-                        # Resmi sunucu klasörüne kalıcı olarak kaydet
                         img_filename = f"{clean_ticker}_{uuid.uuid4().hex[:6]}.png"
                         img_path = os.path.join(UPLOAD_DIR, img_filename)
                         
                         image_obj = Image.open(active_img)
                         image_obj.save(img_path)
                         
-                        # Dosya yolunu session'a ve JSON'a kaydet
                         st.session_state['saved_images'][clean_ticker] = img_path
                         save_user_data()
                         st.success("📸 Görsel sunucuya kalıcı olarak kaydedildi!")
 
-                    # Eğer daha önceden bu hisse için kaydedilmiş bir fotoğraf varsa onu göster
                     if clean_ticker in st.session_state['saved_images'] and os.path.exists(st.session_state['saved_images'][clean_ticker]):
                         saved_path = st.session_state['saved_images'][clean_ticker]
                         st.image(saved_path, caption=f"{clean_ticker} Kayıtlı Bilanço / Rasyo Görseli", use_container_width=True)
