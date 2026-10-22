@@ -451,3 +451,62 @@ with tab3:
         col_ep1, col_ep2, col_ep3, col_ep4 = st.columns([1.5, 1, 1, 1])
         with col_ep1:
             new_p = st.selectbox(
+                "Hisse Seçin", 
+                options=["Seçiniz..."] + BIST_500_TICKERS, 
+                key="new_p_select"
+            )
+        with col_ep2:
+            cost_val = st.text_input("Maliyet (TL) (Boş = Canlı Fiyat)", value="")
+        with col_ep3:
+            lot_val = st.number_input("Lot Adedi", min_value=1, value=100, step=10)
+        with col_ep4:
+            st.write("")
+            st.write("")
+            if st.button("Portföye Ekle", key="add_p_btn"):
+                if new_p != "Seçiniz...":
+                    parsed_cost = 0.0
+                    try:
+                        if cost_val.strip() != "":
+                            parsed_cost = float(cost_val.replace(",", "."))
+                    except: pass
+                    
+                    if parsed_cost <= 0:
+                        try:
+                            df_temp = yf.download(f"{new_p}.IS", period="1d", interval="1m", progress=False)
+                            parsed_cost = float(df_temp['Close'].iloc[-1])
+                        except:
+                            parsed_cost = 0.0
+
+                    st.session_state['portfolio'][new_p] = {
+                        "cost": parsed_cost,
+                        "lots": int(lot_val)
+                    }
+                    st.success(f"{new_p} portföye eklendi!")
+                    st.rerun()
+
+        st.markdown("---")
+        col_del1, col_del2 = st.columns([2, 1])
+        with col_del1:
+            p_keys = list(st.session_state['portfolio'].keys())
+            rem_p = st.selectbox("Portföyden Çıkarılacak Hisse", ["Seçiniz..."] + p_keys, key="rem_p_tab")
+        with col_del2:
+            st.write("")
+            st.write("")
+            if st.button("Portföyden Sil", key="del_p_btn") and rem_p != "Seçiniz...":
+                del st.session_state['portfolio'][rem_p]
+                st.success(f"{rem_p} portföyden çıkarıldı!")
+                st.rerun()
+
+    portfolio_data = []
+    total_invested = 0.0
+    total_current_val = 0.0
+
+    if st.session_state['portfolio']:
+        with st.spinner("Portföy canlı fiyatları güncelleniyor..."):
+            for sym, info in st.session_state['portfolio'].items():
+                t_code = f"{sym}.IS" if not sym.endswith(".IS") else sym
+                cost = info["cost"]
+                lots = info["lots"]
+                
+                try:
+                    df_p = yf.download(t_code,
