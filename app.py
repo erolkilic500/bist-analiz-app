@@ -10,12 +10,12 @@ import uuid
 st.set_page_config(page_title="BIST 5dk Scalping & Tarama Paneli", layout="wide")
 
 # ==============================================================================
-# 🔒 KULLANICI GİRİŞİ VE TEK CİHAZ (EŞ ZAMANLI OTURUM) KONTROLÜ
+# 🔒 KULLANICI GİRİŞİ VE TEK CİHAZ KONTROLÜ
 # ==============================================================================
 USERS = {
     "bist500erol": "2152039",  # Yönetici (Siz)
-    "arkadas1": "bist123",    # Arkadaşınızın kullanıcı adı ve şifresi
-    "arkadas2": "bist456"     # Arkadaşınızın kullanıcı adı ve şifresi
+    "arkadas1": "bist123",
+    "arkadas2": "bist456"
 }
 
 if "ACTIVE_SESSIONS" not in st.session_state:
@@ -45,7 +45,7 @@ def login_form():
                 current_device = st.session_state["device_session_id"]
                 
                 if active_device and active_device != current_device:
-                    st.error("⚠️ Bu kullanıcı adı şu anda başka bir cihazda (PC/Mobil/Tablet) aktif! Aynı anda yalnızca tek cihazdan giriş yapılabilir.")
+                    st.error("⚠️ Bu kullanıcı adı şu anda başka bir cihazda aktif! Aynı anda yalnızca tek cihazdan giriş yapılabilir.")
                 else:
                     st.session_state["ACTIVE_SESSIONS"][clean_user] = current_device
                     st.session_state["authenticated"] = True
@@ -60,12 +60,12 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI (Sadece Giriş Yapanlar Görebilir)
+# 🚀 UYGULAMA ANA KODLARI
 # ==============================================================================
 
 col_head1, col_head2 = st.columns([0.8, 0.2])
 with col_head1:
-    st.title("BIST Scalping, 10 Indikator Puanlama ve BIST Tarayici Paneli")
+    st.title("BIST Advanced Scalping & Gelişmiş Sinyal Paneli")
 with col_head2:
     st.write(f"👤 **Kullanıcı:** `{st.session_state['username']}`")
     if st.button("🚪 Çıkış Yap"):
@@ -77,7 +77,7 @@ with col_head2:
         st.session_state["username"] = ""
         st.rerun()
 
-st.write("Dogrudan Borsa Istanbul verileriyle saf matematiksel ve objektif teknik analiz!")
+st.write("Dogrudan Borsa Istanbul verileriyle saf matematiksel, teknik ve aksiyon odakli sinyal analizi!")
 
 if 'last_searched_ticker' not in st.session_state:
     st.session_state['last_searched_ticker'] = ""
@@ -87,7 +87,7 @@ if 'scan_results_df' not in st.session_state:
 if 'scan_completed_msg' not in st.session_state:
     st.session_state['scan_completed_msg'] = ""
 
-# --- BIST 500 / GENİŞ BIST HİSSE LİSTESİ (450+ HİSSE) ---
+# --- BIST 500 HİSSE LİSTESİ ---
 BIST_500_TICKERS = [
     "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ",
     "AKBNK", "AKCNS", "AKFGY", "AKFYE", "AKGRT", "AKMGY", "AKSA", "AKSEN", "AKSGY", "AKSUE",
@@ -143,28 +143,16 @@ period_options = [
 ]
 
 interval_map = {
-    "1 Dakika": ("1m", "7d"),
-    "2 Dakika": ("2m", "1mo"),
-    "3 Dakika": ("2m", "1mo"),
-    "5 Dakika": ("5m", "1mo"),
-    "10 Dakika": ("5m", "1mo"),
-    "15 Dakika": ("15m", "1mo"),
-    "30 Dakika": ("30m", "3mo"),
-    "45 Dakika": ("15m", "3mo"),
-    "1 Saat": ("1h", "6mo"),
-    "2 Saat": ("1h", "1y"),
-    "3 Saat": ("1h", "1y"),
-    "4 Saat": ("1h", "2y"),
-    "1 Günlük": ("1d", "2y"),
-    "1 Haftalık": ("1wk", "5y"),
-    "1 Aylık": ("1mo", "10y"),
-    "3 Aylık": ("3mo", "max"),
-    "6 Aylık": ("3mo", "max"),
-    "1 Yıllık": ("3mo", "max")
+    "1 Dakika": ("1m", "7d"), "2 Dakika": ("2m", "1mo"), "3 Dakika": ("2m", "1mo"),
+    "5 Dakika": ("5m", "1mo"), "10 Dakika": ("5m", "1mo"), "15 Dakika": ("15m", "1mo"),
+    "30 Dakika": ("30m", "3mo"), "45 Dakika": ("15m", "3mo"), "1 Saat": ("1h", "6mo"),
+    "2 Saat": ("1h", "1y"), "3 Saat": ("1h", "1y"), "4 Saat": ("1h", "2y"),
+    "1 Günlük": ("1d", "2y"), "1 Haftalık": ("1wk", "5y"), "1 Aylık": ("1mo", "10y"),
+    "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
 }
 
 def analyze_df(df):
-    """10 Indikator hesaplama ve puanlama motoru"""
+    """Gelişmiş İndikatör Puanlama ve Aksiyon Sinyali Motoru"""
     if df.empty or len(df) < 10:
         return None
         
@@ -173,37 +161,31 @@ def analyze_df(df):
     
     # 1. RSI
     delta = df['Close'].diff()
-    gain_series = delta.where(delta > 0, 0)
-    loss_series = -delta.where(delta < 0, 0)
-    gain = gain_series.rolling(window=14).mean()
-    loss = loss_series.rolling(window=14).mean()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     val_rsi = float(rsi.iloc[-1])
     
-    if 40 <= val_rsi <= 70:
-        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
-    elif val_rsi < 30:
-        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip Adayi)", 8
-    elif val_rsi > 70:
-        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f} Asiri Alim)", 4
-    else:
-        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 5
+    if 40 <= val_rsi <= 70: rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
+    elif val_rsi < 30: rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip Adayi)", 8
+    elif val_rsi > 70: rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f} Asiri Alim)", 4
+    else: rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 5
 
     # 2. SuperTrend
     hl2 = (df['High'] + df['Low']) / 2
-    if df['Close'].iloc[-1] > float(hl2.iloc[-1]):
-        st_sig, st_score = "[ + ] (Yukselis Trendi)", 10
-    else:
-        st_sig, st_score = "[ - ] (Dusus Trendi)", 2
+    st_trend = df['Close'].iloc[-1] > float(hl2.iloc[-1])
+    st_sig, st_score = ("[ + ] (Yukselis Trendi)", 10) if st_trend else ("[ - ] (Dusus Trendi)", 2)
 
     # 3. Stochastic
     low_14 = df['Low'].rolling(14).min()
     high_14 = df['High'].rolling(14).max()
     stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
     stoch_d = stoch_k.rolling(3).mean()
-    val_stoch_k = float(stoch_k.iloc[-1])
-    val_stoch_d = float(stoch_d.iloc[-1])
+    val_stoch_k, val_stoch_d = float(stoch_k.iloc[-1]), float(stoch_d.iloc[-1])
+    stoch_cross_up = val_stoch_k > val_stoch_d and float(stoch_k.iloc[-2]) <= float(stoch_d.iloc[-2])
+    stoch_cross_down = val_stoch_k < val_stoch_d and float(stoch_k.iloc[-2]) >= float(stoch_d.iloc[-2])
+    
     if val_stoch_k > val_stoch_d:
         stoch_sig, stoch_score = f"[ + ] (%K: {val_stoch_k:.1f} > %D: {val_stoch_d:.1f})", (10 if val_stoch_k < 80 else 7)
     else:
@@ -214,8 +196,7 @@ def analyze_df(df):
     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
     macd_line = exp1 - exp2
     signal_line = macd_line.ewm(span=9, adjust=False).mean()
-    val_macd = float(macd_line.iloc[-1])
-    val_sig = float(signal_line.iloc[-1])
+    val_macd, val_sig = float(macd_line.iloc[-1]), float(signal_line.iloc[-1])
     if val_macd > val_sig:
         macd_sig, macd_score = f"[ + ] (MACD: {val_macd:.2f} > Sig: {val_sig:.2f})", (10 if val_macd > 0 else 8)
     else:
@@ -224,30 +205,21 @@ def analyze_df(df):
     # 5. Hacim
     vol_current = float(df['Volume'].iloc[-1])
     vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
-    if vol_current > vol_ma:
-        vol_sig, vol_score = f"[ + ] (Hacim: {vol_current:,.0f} > Ort)", 9
-    else:
-        vol_sig, vol_score = f"[ - ] (Hacim: {vol_current:,.0f} < Ort)", 4
+    vol_high = vol_current > vol_ma
+    vol_sig, vol_score = (f"[ + ] (Hacim: {vol_current:,.0f} > Ort)", 9) if vol_high else (f"[ - ] (Hacim: {vol_current:,.0f} < Ort)", 4)
 
     # 6. OBV
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
     val_obv = float(obv.iloc[-1])
     val_obv_ma = float(obv_ma.iloc[-1]) if isinstance(obv_ma, pd.Series) else float(obv_ma)
-    if val_obv > val_obv_ma:
-        obv_sig, obv_score = "[ + ] (OBV > Ort)", 8
-    else:
-        obv_sig, obv_score = "[ - ] (OBV < Ort)", 4
+    obv_sig, obv_score = ("[ + ] (OBV > Ort)", 8) if val_obv > val_obv_ma else ("[ - ] (OBV < Ort)", 4)
 
     # 7. EMA 20/50
     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
     ema50 = df['Close'].ewm(span=50, adjust=False).mean()
-    val_ema20 = float(ema20.iloc[-1])
-    val_ema50 = float(ema50.iloc[-1])
-    if val_ema20 > val_ema50:
-        ema_sig, ema_score = f"[ + ] (EMA20: {val_ema20:.2f} > EMA50: {val_ema50:.2f})", 10
-    else:
-        ema_sig, ema_score = f"[ - ] (EMA20: {val_ema20:.2f} < EMA50: {val_ema50:.2f})", 3
+    val_ema20, val_ema50 = float(ema20.iloc[-1]), float(ema50.iloc[-1])
+    ema_sig, ema_score = (f"[ + ] (EMA20: {val_ema20:.2f} > EMA50: {val_ema50:.2f})", 10) if val_ema20 > val_ema50 else (f"[ - ] (EMA20: {val_ema20:.2f} < EMA50: {val_ema50:.2f})", 3)
 
     # 8. TEMA
     ema_t1 = df['Close'].ewm(span=9).mean()
@@ -255,18 +227,12 @@ def analyze_df(df):
     ema_t3 = ema_t2.ewm(span=9).mean()
     tema = 3 * (ema_t1 - ema_t2) + ema_t3
     val_tema = float(tema.iloc[-1])
-    if df['Close'].iloc[-1] > val_tema:
-        tema_sig, tema_score = f"[ + ] (Fiyat > TEMA: {val_tema:.2f})", 9
-    else:
-        tema_sig, tema_score = f"[ - ] (Fiyat < TEMA: {val_tema:.2f})", 4
+    tema_sig, tema_score = (f"[ + ] (Fiyat > TEMA: {val_tema:.2f})", 9) if last_price > val_tema else (f"[ - ] (Fiyat < TEMA: {val_tema:.2f})", 4)
 
     # 9. Bollinger
     bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
     val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
-    if df['Close'].iloc[-1] > val_bb:
-        bb_sig, bb_score = f"[ + ] (Fiyat > BB Ort: {val_bb:.2f})", 8
-    else:
-        bb_sig, bb_score = f"[ - ] (Fiyat < BB Ort: {val_bb:.2f})", 4
+    bb_sig, bb_score = (f"[ + ] (Fiyat > BB Ort: {val_bb:.2f})", 8) if last_price > val_bb else (f"[ - ] (Fiyat < BB Ort: {val_bb:.2f})", 4)
 
     # 10. ATR
     high_low = df['High'] - df['Low']
@@ -276,22 +242,53 @@ def analyze_df(df):
     atr = tr.rolling(14).mean()
     val_atr = float(atr.iloc[-1])
     atr_ma = atr.rolling(30).mean().iloc[-1] if len(df) >= 30 else atr.mean()
-    if val_atr > float(atr_ma):
-        atr_sig, atr_score = f"[ + ] (ATR: {val_atr:.2f} Volatiliteli)", 7
-    else:
-        atr_sig, atr_score = f"[ - ] (ATR: {val_atr:.2f} Durgun)", 5
+    atr_sig, atr_score = (f"[ + ] (ATR: {val_atr:.2f} Volatiliteli)", 7) if val_atr > float(atr_ma) else (f"[ - ] (ATR: {val_atr:.2f} Durgun)", 5)
 
     signals = [rsi_sig, st_sig, macd_sig, ema_sig, stoch_sig, vol_sig, obv_sig, tema_sig, bb_sig, atr_sig]
     scores = [rsi_score, st_score, stoch_score, macd_score, vol_score, obv_score, ema_score, tema_score, bb_score, atr_score]
     total_positive = sum(1 for s in signals if "[ + ]" in s)
-    total_score_sum = sum(scores)  # 10 indikatörün puanlarının toplamı (Max 100)
+    total_score_sum = sum(scores)
     avg_score = round(np.mean(scores), 1)
+
+    # ==========================================================================
+    # 🎯 ÖZEL SİNYAL VE AKSİYON DETEKTÖRÜ (Gelişmiş Formülizasyon)
+    # ==========================================================================
+    action_signal = "NÖTR"
+    
+    # 1. DİPTEN AL & TAVANDAN SAT / KÂR AL
+    if val_rsi < 35 and stoch_cross_up:
+        action_signal = "🚀 DİPTEN AL (Dip Dönüşü)"
+    elif val_rsi > 72 and stoch_cross_down:
+        action_signal = "⚠️ TAVANDAN SAT / KÂR AL (Aşırı Alım Dönüşü)"
+        
+    # 2. BOĞA TUZAĞI (Bull Trap) & AYI TUZAĞI (Bear Trap)
+    elif last_price > val_bb and not vol_high and val_macd < val_sig:
+        action_signal = "🪤 BOĞA TUZAĞI (Düşük Hacimli Yükseliş)"
+    elif last_price < val_bb and val_rsi < 35 and vol_high and stoch_cross_up:
+        action_signal = "🐻 AYI TUZAĞI (Silkeleme / Dökme Hareketi)"
+        
+    # 3. ARA AL & ARA SAT (Trend İçi Düzeltmeler)
+    elif val_ema20 > val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_up:
+        action_signal = "📈 ARA AL (Trend Düzeltme Alımı)"
+    elif val_ema20 < val_ema50 and abs(last_price - val_ema20) / last_price < 0.01 and stoch_cross_down:
+        action_signal = "📉 ARA SAT (Tepki Yükselişi Satışı)"
+        
+    # 4. Doğrudan NET AL / SAT / BEKLE Sinyalleri
+    elif total_positive >= 8 and total_score_sum >= 75:
+        action_signal = "🟢 NET AL (Güçlü Yükseliş Trendi)"
+    elif total_positive <= 3 or total_score_sum <= 40:
+        action_signal = "🔴 NET SAT (Düşüş Trendi)"
+    elif total_positive >= 5:
+        action_signal = "🟡 BEKLE / İZLE (Nötr-Olumlu)"
+    else:
+        action_signal = "🟠 RİSKLİ / BEKLE"
 
     return {
         "last_price": last_price,
         "total_positive": total_positive,
         "total_score_sum": total_score_sum,
         "avg_score": avg_score,
+        "action_signal": action_signal,
         "signals": {
             "RSI": (rsi_sig, rsi_score), "SuperTrend": (st_sig, st_score),
             "Stochastic": (stoch_sig, stoch_score), "MACD": (macd_sig, macd_score),
@@ -369,12 +366,9 @@ with tab1:
                     for name, (sig, sc) in res["signals"].items():
                         st.markdown(f"**{name}:** `{sig}` ➔ **{sc}/10** &nbsp; {get_status_label(sc)}")
 
-                    sinyal_text = "GÜÇLÜ AL" if res["total_positive"] >= 7 else ("BEKLE" if res["total_positive"] >= 5 else "SAT")
-                    
-                    # --- TOPLAM PUAN VE GENEL DURUM ÖZETİ ---
                     st.markdown("--------------------------------------------------")
-                    st.markdown(f"**SİNYAL** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `{sinyal_text}` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **Genel Durum :** `{res['total_positive']}/10 Olumlu`")
-                    st.markdown(f"📊 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Ortalama: {res['avg_score']}/10)")
+                    st.markdown(f"🎯 **ÖZEL SİNYAL & AKSİYON:** &nbsp;&nbsp; `{res['action_signal']}`")
+                    st.markdown(f"📊 **TOPLAM TEKNİK PUAN:** &nbsp;&nbsp;&nbsp; `📈 {res['total_score_sum']} / 100 Puan` &nbsp;&nbsp;&nbsp; (Genel Durum: {res['total_positive']}/10 Olumlu)")
                     st.markdown("--------------------------------------------------")
 
                     # Grafikler
@@ -395,7 +389,7 @@ with tab1:
 # --- SEKME 2: BIST TARAYICI (TOP 50) ---
 with tab2:
     st.subheader("BIST Otomatik Hisse Tarayicisi (Top 50)")
-    st.write("BIST 500 / Geniş hisse havuzunu (450+ hisse) tarar, en güçlüden aşağı doğru sıralar ve en iyi potansiyele sahip **ilk 50 hisseyi** getirir.")
+    st.write("BIST 500 / Geniş hisse havuzunu (450+ hisse) tarar, aksiyon sinyallerini üretir ve en güçlü ilk 50 hisseyi listeler.")
     
     scan_period_choice = st.selectbox("Tarama Periyodu Seçin", period_options, index=3, key="scan_p")
     scan_interval, scan_period = interval_map.get(scan_period_choice, ("5m", "1mo"))
@@ -424,10 +418,9 @@ with tab2:
                     scan_results.append({
                         "Hisse Kodu": symbol,
                         "Son Fiyat (TL)": f"{res['last_price']:.2f}",
-                        "Olumlu Indikator": res["total_positive"],
+                        "Aksiyon Sinyali": res["action_signal"],
                         "Toplam Puan": res["total_score_sum"],
-                        "Ortalama Puan": res["avg_score"],
-                        "Sinyal": "🟢 GÜÇLÜ AL" if res["total_positive"] >= 7 else "🟡 BEKLE",
+                        "Olumlu Indikator": res["total_positive"],
                         "RSI": res["signals"]["RSI"][0].split("RSI: ")[-1].replace(")", ""),
                         "EMA Status": "Golden Cross ⭐" if res["signals"]["EMA20/50"][1] == 10 else "Notr/Zayif"
                     })
@@ -439,11 +432,10 @@ with tab2:
 
         if scan_results:
             results_df = pd.DataFrame(scan_results)
-            results_df = results_df.sort_values(by=["Olumlu Indikator", "Toplam Puan"], ascending=[False, False]).reset_index(drop=True)
+            results_df = results_df.sort_values(by=["Toplam Puan", "Olumlu Indikator"], ascending=[False, False]).reset_index(drop=True)
             top_50_df = results_df.head(50)
             top_50_df["Olumlu Indikator"] = top_50_df["Olumlu Indikator"].astype(str) + " / 10"
             top_50_df["Toplam Puan"] = top_50_df["Toplam Puan"].astype(str) + " / 100 Puan"
-            top_50_df["Ortalama Puan"] = top_50_df["Ortalama Puan"].astype(str) + " / 10"
             top_50_df.index = top_50_df.index + 1
             
             st.session_state['scan_results_df'] = top_50_df
