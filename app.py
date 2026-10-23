@@ -250,7 +250,12 @@ def analyze_df(df):
     rsi = 100 - (100 / (1 + rs))
     val_rsi = float(rsi.iloc[-1])
     
-    rsi_sig, rsi_score = (f"[ + ] (RSI: {val_rsi:.1f})", 9) if 40 <= val_rsi <= 70 else ((f"[ + ] (RSI: {val_rsi:.1f} Dip)", 8) if val_rsi < 30 else (f"[ - ] (RSI: {val_rsi:.1f})", 4))
+    if 40 <= val_rsi <= 70:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
+    elif val_rsi < 30:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip)", 8
+    else:
+        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 4
 
     hl2 = (df['High'] + df['Low']) / 2
     st_trend = df['Close'].iloc[-1] > float(hl2.iloc[-1])
@@ -263,4 +268,100 @@ def analyze_df(df):
     val_stoch_k, val_stoch_d = float(stoch_k.iloc[-1]), float(stoch_d.iloc[-1])
     stoch_cross_up = val_stoch_k > val_stoch_d and float(stoch_k.iloc[-2]) <= float(stoch_d.iloc[-2])
     
-    stoch_sig, stoch_score = (f"[ + ] (%K > %D)", 9) if val_stoch_k
+    if val_stoch_k > val_stoch_d:
+        stoch_sig, stoch_score = f"[ + ] (%K > %D)", 9
+    else:
+        stoch_sig, stoch_score = f"[ - ] (%K < %D)", 3
+
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    macd_line = exp1 - exp2
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    val_macd, val_sig = float(macd_line.iloc[-1]), float(signal_line.iloc[-1])
+    
+    if val_macd > val_sig:
+        macd_sig, macd_score = f"[ + ] (MACD Pozitif)", 9
+    else:
+        macd_sig, macd_score = f"[ - ] (MACD Negatif)", 2
+
+    vol_current = float(df['Volume'].iloc[-1])
+    vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
+    vol_high = vol_current > vol_ma
+    
+    if vol_high:
+        vol_sig, vol_score = f"[ + ] (Hacim Yüksek)", 9
+    else:
+        vol_sig, vol_score = f"[ - ] (Hacim Düşük)", 4
+
+    obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
+    obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
+    val_obv = float(obv.iloc[-1])
+    val_obv_ma = float(obv_ma.iloc[-1]) if isinstance(obv_ma, pd.Series) else float(obv_ma)
+    
+    if val_obv > val_obv_ma:
+        obv_sig, obv_score = "[ + ] (OBV > Ort)", 8
+    else:
+        obv_sig, obv_score = "[ - ] (OBV < Ort)", 4
+
+    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+    ema50 = df['Close'].ewm(span=50, adjust=False).mean()
+    val_ema20, val_ema50 = float(ema20.iloc[-1]), float(ema50.iloc[-1])
+    
+    if val_ema20 > val_ema50:
+        ema_sig, ema_score = f"[ + ] (EMA20 > EMA50)", 10
+    else:
+        ema_sig, ema_score = f"[ - ] (EMA20 < EMA50)", 3
+
+    ema_t1 = df['Close'].ewm(span=9).mean()
+    ema_t2 = ema_t1.ewm(span=9).mean()
+    ema_t3 = ema_t2.ewm(span=9).mean()
+    tema = 3 * (ema_t1 - ema_t2) + ema_t3
+    val_tema = float(tema.iloc[-1])
+    
+    if last_price > val_tema:
+        tema_sig, tema_score = f"[ + ] (Fiyat > TEMA)", 9
+    else:
+        tema_sig, tema_score = f"[ - ] (Fiyat < TEMA)", 4
+
+    bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
+    val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
+    
+    if last_price > val_bb:
+        bb_sig, bb_score = f"[ + ] (Fiyat > BB Ort)", 8
+    else:
+        bb_sig, bb_score = f"[ - ] (Fiyat < BB Ort)", 4
+
+    high_low = df['High'] - df['Low']
+    high_close = np.abs(df['High'] - df['Close'].shift())
+    low_close = np.abs(df['Low'] - df['Close'].shift())
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean()
+    val_atr = float(atr.iloc[-1])
+    atr_ma = atr.rolling(30).mean().iloc[-1] if len(df) >= 30 else atr.mean()
+    
+    if val_atr > float(atr_ma):
+        atr_sig, atr_score = f"[ + ] (ATR Volatiliteli)", 7
+    else:
+        atr_sig, atr_score = f"[ - ] (ATR Durgun)", 5
+
+    signals = [rsi_sig, st_sig, macd_sig, ema_sig, stoch_sig, vol_sig, obv_sig, tema_sig, bb_sig, atr_sig]
+    scores = [rsi_score, st_score, stoch_score, macd_score, vol_score, obv_score, ema_score, tema_score, bb_score, atr_score]
+    total_positive = sum(1 for s in signals if "[ + ]" in s)
+    tech_score_sum = sum(scores)
+
+    return {
+        "last_price": last_price,
+        "total_positive": total_positive,
+        "tech_score_sum": tech_score_sum,
+        "gap_status": gap_status,
+        "pressure_status": pressure_status,
+        "buyer_pct": buyer_pct,
+        "seller_pct": seller_pct,
+        "buying_vol": buying_vol,
+        "selling_vol": selling_vol,
+        "buyer_tl": buyer_tl,
+        "seller_tl": seller_tl,
+        "val_rsi": val_rsi,
+        "stoch_cross_up": stoch_cross_up,
+        "signals": {
+            "RSI": (rsi_sig, rsi_score), "SuperTrend":
