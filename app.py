@@ -182,4 +182,85 @@ BIST_500_TICKERS = sorted(list(set([
     "YUASA", "YYLGD", "YONGA", "YUNSA", "YYAPI", "ZEDUR", "ZELVE", "ZRGYO", "ZOREN"
 ])))
 
-tab1, tab
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Tek Hisse Detaylı Analiz", 
+    "İzleme Listem", 
+    "Portföyüm", 
+    "BIST Otomatik Tarayıcı"
+])
+
+period_options = [
+    "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
+    "1 Saat", "2 Saat", "3 Saat", "4 Saat",
+    "1 Günlük", "1 Haftalık", "1 Aylık", "3 Aylık", "6 Aylık", "1 Yıllık"
+]
+
+interval_map = {
+    "1 Dakika": ("1m", "7d"), "2 Dakika": ("2m", "1mo"), "3 Dakika": ("2m", "1mo"),
+    "5 Dakika": ("5m", "1mo"), "10 Dakika": ("5m", "1mo"), "15 Dakika": ("15m", "1mo"),
+    "30 Dakika": ("30m", "3mo"), "45 Dakika": ("15m", "3mo"), "1 Saat": ("1h", "6mo"),
+    "2 Saat": ("1h", "1y"), "3 Saat": ("1h", "1y"), "4 Saat": ("1h", "2y"),
+    "1 Günlük": ("1d", "2y"), "1 Haftalık": ("1wk", "5y"), "1 Aylık": ("1mo", "10y"),
+    "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
+}
+
+def analyze_df(df):
+    if df.empty or len(df) < 10:
+        return None
+        
+    recent_df = df.tail(20)
+    last_price = float(df['Close'].iloc[-1])
+    
+    prev_high = float(df['High'].iloc[-2])
+    prev_low = float(df['Low'].iloc[-2])
+    curr_open = float(df['Open'].iloc[-1])
+    
+    gap_status = "Normal Açılış"
+    if curr_open > prev_high:
+        gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif)"
+    elif curr_open < prev_low:
+        gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
+
+    total_vol = float(df['Volume'].sum())
+    total_tl_vol = float((df['Close'] * df['Volume']).sum())
+    
+    price_diff = df['Close'].diff().fillna(0)
+    buying_vol = float(df['Volume'][price_diff >= 0].sum())
+    selling_vol = float(df['Volume'][price_diff < 0].sum())
+    
+    buyer_pct = (buying_vol / total_vol) * 100 if total_vol > 0 else 50.0
+    seller_pct = (selling_vol / total_vol) * 100 if total_vol > 0 else 50.0
+
+    buyer_tl = total_tl_vol * (buyer_pct / 100)
+    seller_tl = total_tl_vol * (seller_pct / 100)
+
+    if buyer_pct > 55:
+        pressure_status = "🟢 GÜÇLÜ ALICI BASKISI (Para Girişi Var)"
+    elif buyer_pct > 50:
+        pressure_status = "🟢 HAFİF ALICILI (Dengeli / Pozitif)"
+    elif seller_pct > 55:
+        pressure_status = "🔴 GÜÇLÜ SATICI BASKISI (Para Çıkışı Var)"
+    else:
+        pressure_status = "🟡 HAFİF SATICILI (Dengeli / Negatif)"
+
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    val_rsi = float(rsi.iloc[-1])
+    
+    rsi_sig, rsi_score = (f"[ + ] (RSI: {val_rsi:.1f})", 9) if 40 <= val_rsi <= 70 else ((f"[ + ] (RSI: {val_rsi:.1f} Dip)", 8) if val_rsi < 30 else (f"[ - ] (RSI: {val_rsi:.1f})", 4))
+
+    hl2 = (df['High'] + df['Low']) / 2
+    st_trend = df['Close'].iloc[-1] > float(hl2.iloc[-1])
+    st_sig, st_score = ("[ + ] (Yükseliş Trendi)", 10) if st_trend else ("[ - ] (Düşüş Trendi)", 2)
+
+    low_14 = df['Low'].rolling(14).min()
+    high_14 = df['High'].rolling(14).max()
+    stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
+    stoch_d = stoch_k.rolling(3).mean()
+    val_stoch_k, val_stoch_d = float(stoch_k.iloc[-1]), float(stoch_d.iloc[-1])
+    stoch_cross_up = val_stoch_k > val_stoch_d and float(stoch_k.iloc[-2]) <= float(stoch_d.iloc[-2])
+    
+    stoch_sig, stoch_score = (f"[ + ] (%K > %D)", 9) if val_stoch_k
