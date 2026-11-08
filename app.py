@@ -230,4 +230,1152 @@ def analyze_df(df, manual_price=0.0):
     seller_tl = total_tl_vol * (seller_pct / 100)
 
     if buyer_pct > 55:
-        pressure_status = "
+        pressure_status = "🟢 GÜÇLÜ ALICI BASKISI (Para Girişi Var)"
+    elif buyer_pct > 50:
+        pressure_status = "🟢 HAFİF ALICILI (Dengeli / Pozitif)"
+    elif seller_pct > 55:
+        pressure_status = "🔴 GÜÇLÜ SATICI BASKISI (Para Çıkışı Var)"
+    else:
+        pressure_status = "🟡 HAFİF SATICILI (Dengeli / Negatif)"
+
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    val_rsi = float(rsi.iloc[-1])
+    
+    if 40 <= val_rsi <= 70:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
+    elif val_rsi < 30:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip)", 8
+    else:
+        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 4
+
+    hl2 = (df['High'] + df['Low']) / 2
+    st_trend = last_price > float(hl2.iloc[-1])
+    st_sig, st_score = ("[ + ] (Yükseliş Trendi)", 10) if st_trend else ("[ - ] (Düşüş Trendi)", 2)
+
+    low_14 = df['Low'].rolling(14).min()
+    high_14 = df['High'].rolling(14).max()
+    stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
+    stoch_d = stoch_k.rolling(3).mean()
+    val_stoch_k, val_stoch_d = float(stoch_k.iloc[-1]), float(stoch_d.iloc[-1])
+    stoch_cross_up = val_stoch_k > val_stoch_d and float(stoch_k.iloc[-2]) <= float(stoch_d.iloc[-2])
+    
+    if val_stoch_k > val_stoch_d:
+        stoch_sig, stoch_score = f"[ + ] (%K > %D)", 9
+    else:
+        stoch_sig, stoch_score = f"[ - ] (%K < %D)", 3
+
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    macd_line = exp1 - exp2
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    val_macd, val_sig = float(macd_line.iloc[-1]), float(signal_line.iloc[-1])
+    
+    if val_macd > val_sig:
+        macd_sig, macd_score = f"[ + ] (MACD Pozitif)", 9
+    else:
+        macd_sig, macd_score = f"[ - ] (MACD Negatif)", 2
+
+    vol_current = float(df['Volume'].iloc[-1])
+    vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
+    vol_high = vol_current > vol_ma
+    
+    if vol_high:
+        vol_sig, vol_score = f"[ + ] (Hacim Yüksek)", 9
+    else:
+        vol_sig, vol_score = f"[ - ] (Hacim Düşük)", 4
+
+    obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
+    obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
+    val_obv = float(obv.iloc[-1])
+    val_obv_ma = float(obv_ma.iloc[-1]) if isinstance(obv_ma, pd.Series) else float(obv_ma)
+    
+    if val_obv > val_obv_ma:
+        obv_sig, obv_score = "[ + ] (OBV > Ort)", 8
+    else:
+        obv_sig, obv_score = "[ - ] (OBV < Ort)", 4
+
+    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+    ema50 = df['Close'].ewm(span=50, adjust=False).mean()
+    val_ema20, val_ema50 = float(ema20.iloc[-1]), float(ema50.iloc[-1])
+    
+    if val_ema20 > val_ema50:
+        ema_sig, ema_score = f"[ + ] (EMA20 > EMA50)", 10
+    else:
+        ema_sig, ema_score = f"[ - ] (EMA20 < EMA50)", 3
+
+    ema_t1 = df['Close'].ewm(span=9).mean()
+    ema_t2 = ema_t1.ewm(span=9).mean()
+    ema_t3 = ema_t2.ewm(span=9).mean()
+    tema = 3 * (ema_t1 - ema_t2) + ema_t3
+    val_tema = float(tema.iloc[-1])
+    
+    if last_price > val_tema:
+        tema_sig, tema_score = f"[ + ] (Fiyat > TEMA)", 9
+    else:
+        tema_sig, tema_score = f"[ - ] (Fiyat < TEMA)", 4
+
+    bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
+    val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
+    
+    if last_price > val_bb:
+        bb_sig, bb_score = f"[ + ] (Fiyat > BB Ort)", 8
+    else:
+        bb_sig, bb_score = f"[ - ] (Fiyat < BB Ort)", 4
+
+    high_low = df['High'] - df['Low']
+    high_close = np.abs(df['High'] - df['Close'].shift())
+    low_close = np.abs(df['Low'] - df['Close'].shift())
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean()
+    val_atr = float(atr.iloc[-1])
+    atr_ma = atr.rolling(30).mean().iloc[-1] if len(df) >= 30 else atr.mean()
+    
+    if val_atr > float(atr_ma):
+        atr_sig, atr_score = f"[ + ] (ATR Volatiliteli)", 7
+    else:
+        atr_sig, atr_score = f"[ - ] (ATR Durgun)", 5
+
+    signals = [rsi_sig, st_sig, macd_sig, ema_sig, stoch_sig, vol_sig, obv_sig, tema_sig, bb_sig, atr_sig]
+    scores = [rsi_score, st_score, stoch_score, macd_score, vol_score, obv_score, ema_score, tema_score, bb_score, atr_score]
+    total_positive = sum(1 for s in signals if "[ + ]" in s)
+    tech_score_sum = sum(scores)
+
+    return {
+        "last_price": last_price,
+        "pivots": pivots,
+        "total_positive": total_positive,
+        "tech_score_sum": tech_score_sum,
+        "gap_status": gap_status,
+        "pressure_status": pressure_status,
+        "buyer_pct": buyer_pct,
+        "seller_pct": seller_pct,
+        "buying_vol": buying_vol,
+        "selling_vol": selling_vol,
+        "buyer_tl": buyer_tl,
+        "seller_tl": seller_tl,
+        "val_rsi": val_rsi,
+        "stoch_cross_up": stoch_cross_up,
+        "signals": {
+            "RSI": (rsi_sig, rsi_score), 
+            "SuperTrend": (st_sig, st_score),
+            "Stochastic": (stoch_sig, stoch_score), 
+            "MACD": (macd_sig, macd_score),
+            "Hacim": (vol_sig, vol_score), 
+            "OBV": (obv_sig, obv_score),
+            "EMA20/50": (ema_sig, ema_score), 
+            "TEMA": (tema_sig, tema_score),
+            "Bollinger": (bb_sig, bb_score), 
+            "ATR": (atr_sig, atr_score)
+        },
+        "recent_df": recent_df, 
+        "ema20": ema20, 
+        "ema50": ema50, 
+        "tema": tema,
+        "macd_line": macd_line, 
+        "signal_line": signal_line,
+        "stoch_k": stoch_k, 
+        "stoch_d": stoch_d
+    }
+
+def get_status_label(score):
+    if score >= 9: return "🟢 **[Çok İyi]**"
+    elif score >= 7: return "🟢 **[Uygun]**"
+    elif score >= 5: return "🟡 **[Nötr]**"
+    else: return "🔴 **[Zayıf / Riskli]**"
+
+def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input=""):
+    clean_ticker = ticker_code.strip().upper()
+    if not clean_ticker.endswith(".IS"):
+        clean_ticker += ".IS"
+
+    st.markdown("---")
+    
+    c_per, c_time, c_sym = st.columns([1.4, 0.9, 1.2])
+    with c_per:
+        selected_period_str = st.selectbox(
+            "⏱️ Periyot", 
+            period_options, 
+            index=12,
+            key=f"per_{key_prefix}_{clean_ticker}",
+            label_visibility="collapsed"
+        )
+    with c_time:
+        current_time = datetime.now().strftime("%H:%M")
+        st.markdown(f"🕒 `{current_time}`")
+    with c_sym:
+        st.markdown(f"**Hisse:** `{clean_ticker}`")
+
+    interval, period = interval_map.get(selected_period_str, ("1d", "2y"))
+
+    try:
+        with st.spinner(f"{clean_ticker} verileri hesaplanıyor..."):
+            df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
+            
+            parsed_manual_price = 0.0
+            try:
+                if manual_price_input.strip() != "":
+                    parsed_manual_price = float(manual_price_input.replace(",", "."))
+            except Exception: pass
+
+            res = analyze_df(df, manual_price=parsed_manual_price)
+            if not res:
+                st.error("Yeterli teknik veri bulunamadı.")
+            else:
+                last_price = res["last_price"]
+                p = res["pivots"]
+
+                stop_loss = last_price * (1 - 0.015)
+                take_profit = last_price * (1 + 0.05)
+                tech_score = res["tech_score_sum"]
+
+                action_signal = "NÖTR"
+                if res["val_rsi"] < 35 and res["stoch_cross_up"]:
+                    action_signal = "🚀 DİPTEN AL (Dip Dönüş Sinyali)"
+                elif tech_score >= 75 and res["buyer_pct"] > 52:
+                    action_signal = "🟢 NET AL (Güçlü Yükseliş Trendi)"
+                elif tech_score <= 40:
+                    action_signal = "🔴 NET SAT / UZAK DUR (Zayıf Trend)"
+                elif tech_score >= 55:
+                    action_signal = "🟡 BEKLE / İZLE (Nötr-Pozitif)"
+                else:
+                    action_signal = "🟠 RİSKLİ / TEMKİNLİ OL"
+
+                st.markdown(f"💰 **Anlık Fiyat:** `{last_price:.2f} TL` &nbsp;|&nbsp; 🎯 **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
+                
+                st.subheader("🛡️ Otomatik Destek & Direnç Seviyeleri (Pivot)")
+                col_s1, col_s2, col_s3 = st.columns(3)
+                with col_s1:
+                    st.error(f"🔴 **R3 (Güçlü Satış):** {p['r3']:.2f} TL\n\n🔴 **R2 (Direnç 2):** {p['r2']:.2f} TL\n\n🔴 **R1 (Direnç 1):** {p['r1']:.2f} TL")
+                with col_s2:
+                    st.info(f"⚪ **Pivot (Nötr Nokta):** {p['pivot']:.2f} TL\n\n🎯 **Özel Sinyal:** `{action_signal}`")
+                with col_s3:
+                    st.success(f"🟢 **S1 (Destek 1):** {p['s1']:.2f} TL\n\n🟢 **S2 (Destek 2):** {p['s2']:.2f} TL\n\n🟢 **S3 (Güçlü Alım):** {p['s3']:.2f} TL")
+
+                st.markdown("---")import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from datetime import datetime
+import json
+import os
+
+st.set_page_config(page_title="BIST Pro Terminal & Portfoy Paneli", layout="wide")
+
+DATA_FILE = "user_data.json"
+UPLOAD_DIR = "uploaded_images"
+
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+def load_user_data():
+    default_watchlist = ["THYAO", "ASELS", "EREGL"]
+    default_portfolio = {
+        "TGSAS": {"cost": 120.00, "lots": 100},
+        "AKBNK": {"cost": 55.50, "lots": 500}
+    }
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                watchlist = data.get("watchlist", default_watchlist)
+                if not isinstance(watchlist, list): watchlist = default_watchlist
+                portfolio = data.get("portfolio", default_portfolio)
+                if not isinstance(portfolio, dict): portfolio = default_portfolio
+                images = data.get("images", {})
+                if not isinstance(images, dict): images = {}
+                alerts = data.get("alerts", {})
+                if not isinstance(alerts, dict): alerts = {}
+                return watchlist, portfolio, images, alerts
+        except Exception:
+            pass
+    return default_watchlist, default_portfolio, {}, {}
+
+def save_user_data():
+    try:
+        data = {
+            "watchlist": st.session_state['watchlist'],
+            "portfolio": st.session_state['portfolio'],
+            "images": st.session_state['saved_images'],
+            "alerts": st.session_state.get('alerts', {})
+        }
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        st.error(f"Veriler kaydedilirken hata oluştu: {e}")
+
+USERS = {
+    "bist500erol": "2152039",
+    "arkadas1": "bist123",
+    "arkadas2": "bist456"
+}
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "username" not in st.session_state:
+    st.session_state["username"] = ""
+
+if not st.session_state["authenticated"]:
+    st.title("🔒 BIST Pro Terminal - Giriş Yap")
+    st.write("Lütfen devam etmek için kullanıcı adı ve şifrenizi giriniz.")
+    with st.form("login_form_secure"):
+        user_input = st.text_input("Kullanıcı Adı")
+        pass_input = st.text_input("Şifre", type="password")
+        submit_button = st.form_submit_button("🚀 Giriş Yap")
+        if submit_button:
+            clean_user = user_input.strip()
+            clean_pass = pass_input.strip()
+            if clean_user in USERS and USERS[clean_user] == clean_pass:
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = clean_user
+                st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
+                st.rerun()
+            else:
+                st.error("❌ Hatalı kullanıcı adı veya şifre!")
+    st.stop()
+
+saved_watchlist, saved_portfolio, saved_images, saved_alerts = load_user_data()
+
+if 'watchlist' not in st.session_state:
+    st.session_state['watchlist'] = saved_watchlist
+if 'portfolio' not in st.session_state:
+    st.session_state['portfolio'] = saved_portfolio
+if 'saved_images' not in st.session_state:
+    st.session_state['saved_images'] = saved_images
+if 'alerts' not in st.session_state:
+    st.session_state['alerts'] = saved_alerts
+if 'selected_ticker' not in st.session_state:
+    st.session_state['selected_ticker'] = "THYAO"
+if 'scan_results_df' not in st.session_state:
+    st.session_state['scan_results_df'] = None
+if 'scan_completed_msg' not in st.session_state:
+    st.session_state['scan_completed_msg'] = ""
+
+col_head1, col_head2 = st.columns([0.8, 0.2])
+with col_head1:
+    st.title("BIST Pro Terminal: Portföy, Hacim & Teknik Analiz Paneli")
+with col_head2:
+    st.write(f"👤 `{st.session_state['username']}`")
+    if st.button("🚪 Çıkış Yap"):
+        st.session_state["authenticated"] = False
+        st.session_state["username"] = ""
+        st.rerun()
+
+BIST_500_TICKERS = sorted(list(set([
+    "AAVT", "ABOD", "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", 
+    "AGROT", "AHGAZ", "AKBNK", "AKCNS", "AKENR", "AKFGY", "AKFYE", "AKGRT", "AKMGY", "AKSA", 
+    "AKSEN", "AKSGY", "AKSUE", "AKTV", "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", 
+    "ALKA", "ALKIM", "ALMAD", "ALTNY", "ALVES", "ANELE", "ANGEN", "ANHYT", "ANSGR", "ARASE", 
+    "ARCLK", "ARDYZ", "ARENA", "ARSAN", "ARTMS", "ARZUM", "ASELS", "ASGYO", "ASTOR", "ASUZU", 
+    "ATAGY", "ATATP", "ATEKS", "ATSYH", "ATLAS", "AVGYO", "AVHOL", "AVOD", "AYCES", "AYDEM", 
+    "AYGAZ", "AZTEK", "BAGFS", "BAKAB", "BALAT", "BANVT", "BARMA", "BASCM", "BASGZ", "BAYRK", 
+    "BEGYO", "BERA", "BEYAZ", "BFREN", "BIENP", "BIGCHEFS", "BIMAS", "BINHO", "BIOEN", "BIZIM", 
+    "BJKAS", "BLCYT", "BMSCH", "BMSTL", "BNTAS", "BOBET", "BORAV", "BORSK", "BOSSA", "BRISA", 
+    "BRKO", "BRKSN", "BRKVY", "BRSAN", "BRYAT", "BSOKE", "BTCIM", "BUCIM", "BURCE", "BURVA", 
+    "BVSAN", "BYDNR", "CANTE", "CASA", "CATES", "CCOLA", "CELHA", "CEMAS", "CEMTS", "CMBTN", 
+    "CMENT", "CONSE", "COSMO", "CRDFA", "CRFSA", "CUSAN", "CVKMD", "CWENE", "DAGI", "DAGHL", 
+    "DAPGM", "DARDL", "DGATE", "DGGYO", "DGNMO", "DIRIT", "DITAS", "DMRGD", "DMSAS", "DOAS", 
+    "DOBUR", "DOCTA", "DOHOL", "DOKTA", "DURDO", "DYOBY", "DZGYO", "EBEBK", "ECILC", "ECZYT", 
+    "EDATA", "EDIP", "EGEEN", "EGEPO", "EGGUB", "EGPRO", "EGSER", "EKIZ", "EKGYO", "EKOS", 
+    "EKSUN", "ELITE", "EMKEL", "EMNIS", "ENJSA", "ENKAI", "ENSRI", "EPLAS", "ERCB", "EREGL", 
+    "ERSU", "ESCAR", "ESEN", "ETILR", "ETYAT", "EUHOL", "EUKYO", "EUPWR", "EUREK", "EURO", 
+    "EYGYO", "FADE", "FENER", "FLAP", "FMIZP", "FONET", "FORTE", "FORMT", "FRIGO", "FROTO", 
+    "FZLGY", "GARAN", "GARFA", "GEDIK", "GEDZA", "GENIL", "GENTS", "GEREL", "GESAN", "GIPTA", 
+    "GLBMD", "GLYHO", "GLCVY", "GMTAS", "GOKNR", "GOLTS", "GOODY", "GOZDE", "GRNYO", "GRTRK", 
+    "GSDHO", "GSDEVR", "GSDDE", "GUBRF", "GWIND", "GZNMI", "HALKB", "HATEK", "HATSN", "HEKTS", 
+    "HKTM", "HLGYO", "HUBVC", "HUNER", "HURGZ", "ICBCT", "ICUGS", "IDEAS", "IDGYO", "IEYHO", 
+    "IHAAS", "IHEVA", "IHGZT", "IHLGM", "IHYAY", "IMASM", "INDES", "INFO", "INGRM", "INTEM", 
+    "INVEO", "INVES", "IPEKE", "ISATR", "ISBTR", "ISCTR", "ISDMR", "ISFIN", "ISGSY", "ISGYO", 
+    "ISKPL", "ISKUR", "ISMEN", "ISSEN", "ITEKS", "ITAS", "IZENR", "IZINV", "IZMDC", 
+    "JANTS", "KAPLM", "KARYE", "KATMR", "KAYSE", "KBORU", "KCAER", "KCHOL", "KENT", "KRTEK", 
+    "KFEIN", "KLMSN", "KLNMA", "KLRXO", "KLSER", "KLYSN", "KMEPU", "KMPUR", "KNFRT", "KONTR", 
+    "KONYA", "KORDS", "KOZAA", "KOZAL", "KRDMA", "KRDMB", "KRDMD", "KRGYO", "KRONT", "KRPLS", 
+    "KRSTL", "KRTEK", "KRVGD", "KSTUR", "KTLEV", "KTSKR", "KUYAŞ", "KZTGY", "KZGYO", "LIDER", 
+    "LKMNH", "LMKDC", "LOGIN", "LNKAC", "LORAS", "LUKSK", "MAALT", "MACKO", "MAKIM", "MAKTK", 
+    "MANAS", "MARKA", "MAVI", "MEDTR", "MEGAP", "MEGMT", "MEPET", "MERCN", "MERIT", "MERKO", 
+    "METRO", "METUR", "MHRGY", "MIATK", "MGROS", "MKGYO", "MPARK", "MRGYO", "MRSHL", "MSGYO", 
+    "MTRKS", "MTRYO", "MZHLD", "NATEN", "NETAS", "NIBAS", "NTGAZ", "NTHOL", "NUGYO", "NUHCM", 
+    "OBAMS", "OBASE", "ODAS", "OFSYM", "ONCSM", "ORCA", "ORGE", "ORMA", "OSTIM", "OTKAR", 
+    "OTTO", "OYAKC", "OATEK", "OYLUM", "OZMGD", "OZKGY", "OZRDN", "OZSUB", "PAGYO", "PAMEL", 
+    "PAPIL", "PARSN", "PASEU", "PCILT", "PEKGY", "PENGD", "PENTA", "PETKM", "PETUN", "PGSUS", 
+    "PINSU", "PKART", "PKENT", "PLTUR", "PNLSN", "PNSUT", "POLHO", "POLTK", "PRDGS", "PRKAB", 
+    "PRKME", "PRZMA", "PSDTC", "PSGYO", "QNBFB", "QNBFK", "QUAGR", "RALYH", "RAYSG", "REEDR", 
+    "RNPOL", "RODRG", "ROYAL", "RTALB", "RUBNS", "RYGYO", "RYSAS", "SAHOL", "SAMAT", "SANEL", 
+    "SANFM", "SANGS", "SANKO", "SARKY", "SASA", "SAYAS", "SDTTR", "SEGMN", "SEKFK", "SEKUR", 
+    "SELEC", "SELVA", "SEYKM", "SILVR", "SISE", "SKBNK", "SKTAS", "SKYMD", "SMART", "SMAO", 
+    "SMRTG", "SMCGY", "SNGYO", "SNICA", "SNKRN", "SOKE", "SOKM", "SONME", "SRVGY", "SUMAS", 
+    "SUNTK", "SURGY", "SUWEN", "TATEN", "TATGD", "TAVHL", "TBORG", "TCAR", "TCELL", "TCKRC", 
+    "TDGYO", "TEKTU", "TERA", "TETMT", "TGSAS", "THYAO", "TKFEN", "TKNSA", "TLMAN", "TMPOL", 
+    "TMSN", "TOASO", "TRGYO", "TLREF", "TNZTP", "TRCAS", "TRILC", "TSKB", "TSPOR", "TTKOM", 
+    "TTRAK", "TUCLK", "TUKAS", "TUPRS", "TUREKS", "TURSG", "UFUK", "ULAS", "ULKER", "UNLU", 
+    "USAK", "VAKBN", "VAKFN", "VAKKO", "VANGD", "VBTYZ", "VESBE", "VESTL", "VKFYO", "VKGYO", 
+    "VKING", "YAPRK", "YATAS", "YAYLA", "YGGYO", "YGYO", "YEOTK", "YINCO", "YITAT", "YKBNK", 
+    "YUASA", "YYLGD", "YONGA", "YUNSA", "YYAPI", "ZEDUR", "ZELVE", "ZRGYO", "ZOREN"
+])))
+
+period_options = [
+    "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
+    "1 Saat", "2 Saat", "3 Saat", "4 Saat",
+    "1 Günlük", "1 Haftalık", "1 Aylık", "3 Aylık", "6 Aylık", "1 Yıllık"
+]
+
+interval_map = {
+    "1 Dakika": ("1m", "7d"), "2 Dakika": ("2m", "1mo"), "3 Dakika": ("2m", "1mo"),
+    "5 Dakika": ("5m", "1mo"), "10 Dakika": ("5m", "1mo"), "15 Dakika": ("15m", "1mo"),
+    "30 Dakika": ("30m", "3mo"), "45 Dakika": ("15m", "3mo"), "1 Saat": ("1h", "6mo"),
+    "2 Saat": ("1h", "1y"), "3 Saat": ("1h", "1y"), "4 Saat": ("1h", "2y"),
+    "1 Günlük": ("1d", "2y"), "1 Haftalık": ("1wk", "5y"), "1 Aylık": ("1mo", "10y"),
+    "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
+}
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Tek Hisse Detaylı Analiz", 
+    "İzleme Listem (3 Odak Hisse)", 
+    "Portföyüm", 
+    "BIST Otomatik Tarayıcı"
+])
+
+def calculate_pivot_levels(df, override_price=None):
+    if override_price and override_price > 0:
+        close = override_price
+        high = override_price * 1.015
+        low = override_price * 0.985
+    else:
+        high = float(df['High'].iloc[-1])
+        low = float(df['Low'].iloc[-1])
+        close = float(df['Close'].iloc[-1])
+    
+    pivot = (high + low + close) / 3
+    r1 = (2 * pivot) - low
+    s1 = (2 * pivot) - high
+    r2 = pivot + (high - low)
+    s2 = pivot - (high - low)
+    r3 = high + 2 * (pivot - low)
+    s3 = low - 2 * (high - pivot)
+    
+    return {
+        "pivot": pivot, "r1": r1, "r2": r2, "r3": r3,
+        "s1": s1, "s2": s2, "s3": s3
+    }
+
+def analyze_df(df, manual_price=0.0):
+    if df.empty or len(df) < 10:
+        return None
+        
+    last_price = float(df['Close'].iloc[-1])
+    if manual_price > 0:
+        last_price = manual_price
+
+    pivots = calculate_pivot_levels(df, override_price=manual_price)
+
+    total_vol = float(df['Volume'].sum())
+    total_tl_vol = float((df['Close'] * df['Volume']).sum())
+    
+    price_diff = df['Close'].diff().fillna(0)
+    buying_vol = float(df['Volume'][price_diff >= 0].sum())
+    selling_vol = float(df['Volume'][price_diff < 0].sum())
+    
+    buyer_pct = (buying_vol / total_vol) * 100 if total_vol > 0 else 50.0
+    seller_pct = (selling_vol / total_vol) * 100 if total_vol > 0 else 50.0
+
+    buyer_tl = total_tl_vol * (buyer_pct / 100)
+    seller_tl = total_tl_vol * (seller_pct / 100)
+
+    if buyer_pct > 55:
+        pressure_status = "🟢 GÜÇLÜ ALICI BASKISI (Para Girişi Var)"
+    elif buyer_pct > 50:
+        pressure_status = "🟢 HAFİF ALICILI (Dengeli / Pozitif)"
+    elif seller_pct > 55:
+        pressure_status = "🔴 GÜÇLÜ SATICI BASKISI (Para Çıkışı Var)"
+    else:
+        pressure_status = "🟡 HAFİF SATICILI (Dengeli / Negatif)"
+
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    val_rsi = float(rsi.iloc[-1])
+    
+    if 40 <= val_rsi <= 70:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
+    elif val_rsi < 30:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip)", 8
+    else:
+        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 4
+
+    hl2 = (df['High'] + df['Low']) / 2
+    st_trend = last_price > float(hl2.iloc[-1])
+    st_sig, st_score = ("[ + ] (Yükseliş Trendi)", 10) if st_trend else ("[ - ] (Düşüş Trendi)", 2)
+
+    low_14 = df['Low'].rolling(14).min()
+    high_14 = df['High'].rolling(14).max()
+    stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
+    stoch_d = stoch_k.rolling(3).mean()
+    val_stoch_k, val_stoch_d = float(stoch_k.iloc[-1]), float(stoch_d.iloc[-1])
+    stoch_cross_up = val_stoch_k > val_stoch_d and float(stoch_k.iloc[-2]) <= float(stoch_d.iloc[-2])
+    
+    if val_stoch_k > val_stoch_d:
+        stoch_sig, stoch_score = f"[ + ] (%K > %D)", 9
+    else:
+        stoch_sig, stoch_score = f"[ - ] (%K < %D)", 3
+
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    macd_line = exp1 - exp2
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    val_macd, val_sig = float(macd_line.iloc[-1]), float(signal_line.iloc[-1])
+    
+    if val_macd > val_sig:
+        macd_sig, macd_score = f"[ + ] (MACD Pozitif)", 9
+    else:
+        macd_sig, macd_score = f"[ - ] (MACD Negatif)", 2
+
+    vol_current = float(df['Volume'].iloc[-1])
+    vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
+    vol_high = vol_current > vol_ma
+    
+    if vol_high:
+        vol_sig, vol_score = f"[ + ] (Hacim Yüksek)", 9
+    else:
+        vol_sig, vol_score = f"[ - ] (Hacim Düşük)", 4
+
+    obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
+    obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
+    val_obv = float(obv.iloc[-1])
+    val_obv_ma = float(obv_ma.iloc[-1]) if isinstance(obv_ma, pd.Series) else float(obv_ma)
+    
+    if val_obv > val_obv_ma:
+        obv_sig, obv_score = "[ + ] (OBV > Ort)", 8
+    else:
+        obv_sig, obv_score = "[ - ] (OBV < Ort)", 4
+
+    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+    ema50 = df['Close'].ewm(span=50, adjust=False).mean()
+    val_ema20, val_ema50 = float(ema20.iloc[-1]), float(ema50.iloc[-1])
+    
+    if val_ema20 > val_ema50:
+        ema_sig, ema_score = f"[ + ] (EMA20 > EMA50)", 10
+    else:
+        ema_sig, ema_score = f"[ - ] (EMA20 < EMA50)", 3
+
+    ema_t1 = df['Close'].ewm(span=9).mean()
+    ema_t2 = ema_t1.ewm(span=9).mean()
+    ema_t3 = ema_t2.ewm(span=9).mean()
+    tema = 3 * (ema_t1 - ema_t2) + ema_t3
+    val_tema = float(tema.iloc[-1])
+    
+    if last_price > val_tema:
+        tema_sig, tema_score = f"[ + ] (Fiyat > TEMA)", 9
+    else:
+        tema_sig, tema_score = f"[ - ] (Fiyat < TEMA)", 4
+
+    bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
+    val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
+    
+    if last_price > val_bb:
+        bb_sig, bb_score = f"[ + ] (Fiyat > BB Ort)", 8
+    else:
+        bb_sig, bb_score = f"[ - ] (Fiyat < BB Ort)", 4
+
+    high_low = df['High'] - df['Low']
+    high_close = np.abs(df['High'] - df['Close'].shift())
+    low_close = np.abs(df['Low'] - df['Close'].shift())
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean()
+    val_atr = float(atr.iloc[-1])
+    atr_ma = atr.rolling(30).mean().iloc[-1] if len(df) >= 30 else atr.mean()
+    
+    if val_atr > float(atr_ma):
+        atr_sig, atr_score = f"[ + ] (ATR Volatiliteli)", 7
+    else:
+        atr_sig, atr_score = f"[ - ] (ATR Durgun)", 5
+
+    signals = [rsi_sig, st_sig, macd_sig, ema_sig, stoch_sig, vol_sig, obv_sig, tema_sig, bb_sig, atr_sig]
+    scores = [rsi_score, st_score, stoch_score, macd_score, vol_score, obv_score, ema_score, tema_score, bb_score, atr_score]
+    total_positive = sum(1 for s in signals if "[ + ]" in s)
+    tech_score_sum = sum(scores)
+
+    return {
+        "last_price": last_price,
+        "pivots": pivots,
+        "total_positive": total_positive,
+        "tech_score_sum": tech_score_sum,
+        "gap_status": gap_status,
+        "pressure_status": pressure_status,
+        "buyer_pct": buyer_pct,
+        "seller_pct": seller_pct,
+        "buying_vol": buying_vol,
+        "selling_vol": selling_vol,
+        "buyer_tl": buyer_tl,
+        "seller_tl": seller_tl,
+        "val_rsi": val_rsi,
+        "stoch_cross_up": stoch_cross_up,
+        "signals": {
+            "RSI": (rsi_sig, rsi_score), 
+            "SuperTrend": (st_sig, st_score),
+            "Stochastic": (stoch_sig, stoch_score), 
+            "MACD": (macd_sig, macd_score),
+            "Hacim": (vol_sig, vol_score), 
+            "OBV": (obv_sig, obv_score),
+            "EMA20/50": (ema_sig, ema_score), 
+            "TEMA": (tema_sig, tema_score),
+            "Bollinger": (bb_sig, bb_score), 
+            "ATR": (atr_sig, atr_score)
+        },
+        "recent_df": recent_df, 
+        "ema20": ema20, 
+        "ema50": ema50, 
+        "tema": tema,
+        "macd_line": macd_line, 
+        "signal_line": signal_line,
+        "stoch_k": stoch_k, 
+        "stoch_d": stoch_d
+    }
+
+def get_status_label(score):
+    if score >= 9: return "🟢 **[Çok İyi]**"
+    elif score >= 7: return "🟢 **[Uygun]**"
+    elif score >= 5: return "🟡 **[Nötr]**"
+    else: return "🔴 **[Zayıf / Riskli]**"
+
+def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input=""):
+    clean_ticker = ticker_code.strip().upper()
+    if not clean_ticker.endswith(".IS"):
+        clean_ticker += ".IS"
+
+    st.markdown("---")
+    
+    c_per, c_time, c_sym = st.columns([1.4, 0.9, 1.2])
+    with c_per:
+        selected_period_str = st.selectbox(
+            "⏱️ Periyot", 
+            period_options, 
+            index=12,
+            key=f"per_{key_prefix}_{clean_ticker}",
+            label_visibility="collapsed"
+        )
+    with c_time:
+        current_time = datetime.now().strftime("%H:%M")
+        st.markdown(f"🕒 `{current_time}`")
+    with c_sym:
+        st.markdown(f"**Hisse:** `{clean_ticker}`")
+
+    interval, period = interval_map.get(selected_period_str, ("1d", "2y"))
+
+    try:
+        with st.spinner(f"{clean_ticker} verileri hesaplanıyor..."):
+            df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
+            
+            parsed_manual_price = 0.0
+            try:
+                if manual_price_input.strip() != "":
+                    parsed_manual_price = float(manual_price_input.replace(",", "."))
+            except Exception: pass
+
+            res = analyze_df(df, manual_price=parsed_manual_price)
+            if not res:
+                st.error("Yeterli teknik veri bulunamadı.")
+            else:
+                last_price = res["last_price"]
+                p = res["pivots"]
+
+                stop_loss = last_price * (1 - 0.015)
+                take_profit = last_price * (1 + 0.05)
+                tech_score = res["tech_score_sum"]
+
+                action_signal = "NÖTR"
+                if res["val_rsi"] < 35 and res["stoch_cross_up"]:
+                    action_signal = "🚀 DİPTEN AL (Dip Dönüş Sinyali)"
+                elif tech_score >= 75 and res["buyer_pct"] > 52:
+                    action_signal = "🟢 NET AL (Güçlü Yükseliş Trendi)"
+                elif tech_score <= 40:
+                    action_signal = "🔴 NET SAT / UZAK DUR (Zayıf Trend)"
+                elif tech_score >= 55:
+                    action_signal = "🟡 BEKLE / İZLE (Nötr-Pozitif)"
+                else:
+                    action_signal = "🟠 RİSKLİ / TEMKİNLİ OL"
+
+                st.markdown(f"💰 **Anlık Fiyat:** `{last_price:.2f} TL` &nbsp;|&nbsp; 🎯 **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
+                
+                st.subheader("🛡️ Otomatik Destek & Direnç Seviyeleri (Pivot)")
+                col_s1, col_s2, col_s3 = st.columns(3)
+                with col_s1:
+                    st.error(f"🔴 **R3 (Güçlü Satış):** {p['r3']:.2f} TL\n\n🔴 **R2 (Direnç 2):** {p['r2']:.2f} TL\n\n🔴 **R1 (Direnç 1):** {p['r1']:.2f} TL")
+                with col_s2:
+                    st.info(f"⚪ **Pivot (Nötr Nokta):** {p['pivot']:.2f} TL\n\n🎯 **Özel Sinyal:** `{action_signal}`")
+                with col_s3:
+                    st.success(f"🟢 **S1 (Destek 1):** {p['s1']:.2f} TL\n\n🟢 **S2 (Destek 2):** {p['s2']:.2f} TL\n\n🟢 **S3 (Güçlü Alım):** {p['s3']:.2f} TL")
+
+                st.markdown("---")import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from datetime import datetime
+import json
+import os
+
+st.set_page_config(page_title="BIST Pro Terminal & Portfoy Paneli", layout="wide")
+
+DATA_FILE = "user_data.json"
+UPLOAD_DIR = "uploaded_images"
+
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+def load_user_data():
+    default_watchlist = ["THYAO", "ASELS", "EREGL"]
+    default_portfolio = {
+        "TGSAS": {"cost": 120.00, "lots": 100},
+        "AKBNK": {"cost": 55.50, "lots": 500}
+    }
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                watchlist = data.get("watchlist", default_watchlist)
+                if not isinstance(watchlist, list): watchlist = default_watchlist
+                portfolio = data.get("portfolio", default_portfolio)
+                if not isinstance(portfolio, dict): portfolio = default_portfolio
+                images = data.get("images", {})
+                if not isinstance(images, dict): images = {}
+                alerts = data.get("alerts", {})
+                if not isinstance(alerts, dict): alerts = {}
+                return watchlist, portfolio, images, alerts
+        except Exception:
+            pass
+    return default_watchlist, default_portfolio, {}, {}
+
+def save_user_data():
+    try:
+        data = {
+            "watchlist": st.session_state['watchlist'],
+            "portfolio": st.session_state['portfolio'],
+            "images": st.session_state['saved_images'],
+            "alerts": st.session_state.get('alerts', {})
+        }
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        st.error(f"Veriler kaydedilirken hata oluştu: {e}")
+
+USERS = {
+    "bist500erol": "2152039",
+    "arkadas1": "bist123",
+    "arkadas2": "bist456"
+}
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "username" not in st.session_state:
+    st.session_state["username"] = ""
+
+if not st.session_state["authenticated"]:
+    st.title("🔒 BIST Pro Terminal - Giriş Yap")
+    st.write("Lütfen devam etmek için kullanıcı adı ve şifrenizi giriniz.")
+    with st.form("login_form_secure"):
+        user_input = st.text_input("Kullanıcı Adı")
+        pass_input = st.text_input("Şifre", type="password")
+        submit_button = st.form_submit_button("🚀 Giriş Yap")
+        if submit_button:
+            clean_user = user_input.strip()
+            clean_pass = pass_input.strip()
+            if clean_user in USERS and USERS[clean_user] == clean_pass:
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = clean_user
+                st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
+                st.rerun()
+            else:
+                st.error("❌ Hatalı kullanıcı adı veya şifre!")
+    st.stop()
+
+saved_watchlist, saved_portfolio, saved_images, saved_alerts = load_user_data()
+
+if 'watchlist' not in st.session_state:
+    st.session_state['watchlist'] = saved_watchlist
+if 'portfolio' not in st.session_state:
+    st.session_state['portfolio'] = saved_portfolio
+if 'saved_images' not in st.session_state:
+    st.session_state['saved_images'] = saved_images
+if 'alerts' not in st.session_state:
+    st.session_state['alerts'] = saved_alerts
+if 'selected_ticker' not in st.session_state:
+    st.session_state['selected_ticker'] = "THYAO"
+if 'scan_results_df' not in st.session_state:
+    st.session_state['scan_results_df'] = None
+if 'scan_completed_msg' not in st.session_state:
+    st.session_state['scan_completed_msg'] = ""
+
+col_head1, col_head2 = st.columns([0.8, 0.2])
+with col_head1:
+    st.title("BIST Pro Terminal: Portföy, Hacim & Teknik Analiz Paneli")
+with col_head2:
+    st.write(f"👤 `{st.session_state['username']}`")
+    if st.button("🚪 Çıkış Yap"):
+        st.session_state["authenticated"] = False
+        st.session_state["username"] = ""
+        st.rerun()
+
+BIST_500_TICKERS = sorted(list(set([
+    "AAVT", "ABOD", "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", 
+    "AGROT", "AHGAZ", "AKBNK", "AKCNS", "AKENR", "AKFGY", "AKFYE", "AKGRT", "AKMGY", "AKSA", 
+    "AKSEN", "AKSGY", "AKSUE", "AKTV", "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", 
+    "ALKA", "ALKIM", "ALMAD", "ALTNY", "ALVES", "ANELE", "ANGEN", "ANHYT", "ANSGR", "ARASE", 
+    "ARCLK", "ARDYZ", "ARENA", "ARSAN", "ARTMS", "ARZUM", "ASELS", "ASGYO", "ASTOR", "ASUZU", 
+    "ATAGY", "ATATP", "ATEKS", "ATSYH", "ATLAS", "AVGYO", "AVHOL", "AVOD", "AYCES", "AYDEM", 
+    "AYGAZ", "AZTEK", "BAGFS", "BAKAB", "BALAT", "BANVT", "BARMA", "BASCM", "BASGZ", "BAYRK", 
+    "BEGYO", "BERA", "BEYAZ", "BFREN", "BIENP", "BIGCHEFS", "BIMAS", "BINHO", "BIOEN", "BIZIM", 
+    "BJKAS", "BLCYT", "BMSCH", "BMSTL", "BNTAS", "BOBET", "BORAV", "BORSK", "BOSSA", "BRISA", 
+    "BRKO", "BRKSN", "BRKVY", "BRSAN", "BRYAT", "BSOKE", "BTCIM", "BUCIM", "BURCE", "BURVA", 
+    "BVSAN", "BYDNR", "CANTE", "CASA", "CATES", "CCOLA", "CELHA", "CEMAS", "CEMTS", "CMBTN", 
+    "CMENT", "CONSE", "COSMO", "CRDFA", "CRFSA", "CUSAN", "CVKMD", "CWENE", "DAGI", "DAGHL", 
+    "DAPGM", "DARDL", "DGATE", "DGGYO", "DGNMO", "DIRIT", "DITAS", "DMRGD", "DMSAS", "DOAS", 
+    "DOBUR", "DOCTA", "DOHOL", "DOKTA", "DURDO", "DYOBY", "DZGYO", "EBEBK", "ECILC", "ECZYT", 
+    "EDATA", "EDIP", "EGEEN", "EGEPO", "EGGUB", "EGPRO", "EGSER", "EKIZ", "EKGYO", "EKOS", 
+    "EKSUN", "ELITE", "EMKEL", "EMNIS", "ENJSA", "ENKAI", "ENSRI", "EPLAS", "ERCB", "EREGL", 
+    "ERSU", "ESCAR", "ESEN", "ETILR", "ETYAT", "EUHOL", "EUKYO", "EUPWR", "EUREK", "EURO", 
+    "EYGYO", "FADE", "FENER", "FLAP", "FMIZP", "FONET", "FORTE", "FORMT", "FRIGO", "FROTO", 
+    "FZLGY", "GARAN", "GARFA", "GEDIK", "GEDZA", "GENIL", "GENTS", "GEREL", "GESAN", "GIPTA", 
+    "GLBMD", "GLYHO", "GLCVY", "GMTAS", "GOKNR", "GOLTS", "GOODY", "GOZDE", "GRNYO", "GRTRK", 
+    "GSDHO", "GSDEVR", "GSDDE", "GUBRF", "GWIND", "GZNMI", "HALKB", "HATEK", "HATSN", "HEKTS", 
+    "HKTM", "HLGYO", "HUBVC", "HUNER", "HURGZ", "ICBCT", "ICUGS", "IDEAS", "IDGYO", "IEYHO", 
+    "IHAAS", "IHEVA", "IHGZT", "IHLGM", "IHYAY", "IMASM", "INDES", "INFO", "INGRM", "INTEM", 
+    "INVEO", "INVES", "IPEKE", "ISATR", "ISBTR", "ISCTR", "ISDMR", "ISFIN", "ISGSY", "ISGYO", 
+    "ISKPL", "ISKUR", "ISMEN", "ISSEN", "ITEKS", "ITAS", "IZENR", "IZINV", "IZMDC", 
+    "JANTS", "KAPLM", "KARYE", "KATMR", "KAYSE", "KBORU", "KCAER", "KCHOL", "KENT", "KRTEK", 
+    "KFEIN", "KLMSN", "KLNMA", "KLRXO", "KLSER", "KLYSN", "KMEPU", "KMPUR", "KNFRT", "KONTR", 
+    "KONYA", "KORDS", "KOZAA", "KOZAL", "KRDMA", "KRDMB", "KRDMD", "KRGYO", "KRONT", "KRPLS", 
+    "KRSTL", "KRTEK", "KRVGD", "KSTUR", "KTLEV", "KTSKR", "KUYAŞ", "KZTGY", "KZGYO", "LIDER", 
+    "LKMNH", "LMKDC", "LOGIN", "LNKAC", "LORAS", "LUKSK", "MAALT", "MACKO", "MAKIM", "MAKTK", 
+    "MANAS", "MARKA", "MAVI", "MEDTR", "MEGAP", "MEGMT", "MEPET", "MERCN", "MERIT", "MERKO", 
+    "METRO", "METUR", "MHRGY", "MIATK", "MGROS", "MKGYO", "MPARK", "MRGYO", "MRSHL", "MSGYO", 
+    "MTRKS", "MTRYO", "MZHLD", "NATEN", "NETAS", "NIBAS", "NTGAZ", "NTHOL", "NUGYO", "NUHCM", 
+    "OBAMS", "OBASE", "ODAS", "OFSYM", "ONCSM", "ORCA", "ORGE", "ORMA", "OSTIM", "OTKAR", 
+    "OTTO", "OYAKC", "OATEK", "OYLUM", "OZMGD", "OZKGY", "OZRDN", "OZSUB", "PAGYO", "PAMEL", 
+    "PAPIL", "PARSN", "PASEU", "PCILT", "PEKGY", "PENGD", "PENTA", "PETKM", "PETUN", "PGSUS", 
+    "PINSU", "PKART", "PKENT", "PLTUR", "PNLSN", "PNSUT", "POLHO", "POLTK", "PRDGS", "PRKAB", 
+    "PRKME", "PRZMA", "PSDTC", "PSGYO", "QNBFB", "QNBFK", "QUAGR", "RALYH", "RAYSG", "REEDR", 
+    "RNPOL", "RODRG", "ROYAL", "RTALB", "RUBNS", "RYGYO", "RYSAS", "SAHOL", "SAMAT", "SANEL", 
+    "SANFM", "SANGS", "SANKO", "SARKY", "SASA", "SAYAS", "SDTTR", "SEGMN", "SEKFK", "SEKUR", 
+    "SELEC", "SELVA", "SEYKM", "SILVR", "SISE", "SKBNK", "SKTAS", "SKYMD", "SMART", "SMAO", 
+    "SMRTG", "SMCGY", "SNGYO", "SNICA", "SNKRN", "SOKE", "SOKM", "SONME", "SRVGY", "SUMAS", 
+    "SUNTK", "SURGY", "SUWEN", "TATEN", "TATGD", "TAVHL", "TBORG", "TCAR", "TCELL", "TCKRC", 
+    "TDGYO", "TEKTU", "TERA", "TETMT", "TGSAS", "THYAO", "TKFEN", "TKNSA", "TLMAN", "TMPOL", 
+    "TMSN", "TOASO", "TRGYO", "TLREF", "TNZTP", "TRCAS", "TRILC", "TSKB", "TSPOR", "TTKOM", 
+    "TTRAK", "TUCLK", "TUKAS", "TUPRS", "TUREKS", "TURSG", "UFUK", "ULAS", "ULKER", "UNLU", 
+    "USAK", "VAKBN", "VAKFN", "VAKKO", "VANGD", "VBTYZ", "VESBE", "VESTL", "VKFYO", "VKGYO", 
+    "VKING", "YAPRK", "YATAS", "YAYLA", "YGGYO", "YGYO", "YEOTK", "YINCO", "YITAT", "YKBNK", 
+    "YUASA", "YYLGD", "YONGA", "YUNSA", "YYAPI", "ZEDUR", "ZELVE", "ZRGYO", "ZOREN"
+])))
+
+period_options = [
+    "1 Dakika", "2 Dakika", "3 Dakika", "5 Dakika", "10 Dakika", "15 Dakika", "30 Dakika", "45 Dakika",
+    "1 Saat", "2 Saat", "3 Saat", "4 Saat",
+    "1 Günlük", "1 Haftalık", "1 Aylık", "3 Aylık", "6 Aylık", "1 Yıllık"
+]
+
+interval_map = {
+    "1 Dakika": ("1m", "7d"), "2 Dakika": ("2m", "1mo"), "3 Dakika": ("2m", "1mo"),
+    "5 Dakika": ("5m", "1mo"), "10 Dakika": ("5m", "1mo"), "15 Dakika": ("15m", "1mo"),
+    "30 Dakika": ("30m", "3mo"), "45 Dakika": ("15m", "3mo"), "1 Saat": ("1h", "6mo"),
+    "2 Saat": ("1h", "1y"), "3 Saat": ("1h", "1y"), "4 Saat": ("1h", "2y"),
+    "1 Günlük": ("1d", "2y"), "1 Haftalık": ("1wk", "5y"), "1 Aylık": ("1mo", "10y"),
+    "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
+}
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Tek Hisse Detaylı Analiz", 
+    "İzleme Listem (3 Odak Hisse)", 
+    "Portföyüm", 
+    "BIST Otomatik Tarayıcı"
+])
+
+def calculate_pivot_levels(df, override_price=None):
+    if override_price and override_price > 0:
+        close = override_price
+        high = override_price * 1.015
+        low = override_price * 0.985
+    else:
+        high = float(df['High'].iloc[-1])
+        low = float(df['Low'].iloc[-1])
+        close = float(df['Close'].iloc[-1])
+    
+    pivot = (high + low + close) / 3
+    r1 = (2 * pivot) - low
+    s1 = (2 * pivot) - high
+    r2 = pivot + (high - low)
+    s2 = pivot - (high - low)
+    r3 = high + 2 * (pivot - low)
+    s3 = low - 2 * (high - pivot)
+    
+    return {
+        "pivot": pivot, "r1": r1, "r2": r2, "r3": r3,
+        "s1": s1, "s2": s2, "s3": s3
+    }
+
+def analyze_df(df, manual_price=0.0):
+    if df.empty or len(df) < 10:
+        return None
+        
+    last_price = float(df['Close'].iloc[-1])
+    if manual_price > 0:
+        last_price = manual_price
+
+    pivots = calculate_pivot_levels(df, override_price=manual_price)
+
+    total_vol = float(df['Volume'].sum())
+    total_tl_vol = float((df['Close'] * df['Volume']).sum())
+    
+    price_diff = df['Close'].diff().fillna(0)
+    buying_vol = float(df['Volume'][price_diff >= 0].sum())
+    selling_vol = float(df['Volume'][price_diff < 0].sum())
+    
+    buyer_pct = (buying_vol / total_vol) * 100 if total_vol > 0 else 50.0
+    seller_pct = (selling_vol / total_vol) * 100 if total_vol > 0 else 50.0
+
+    buyer_tl = total_tl_vol * (buyer_pct / 100)
+    seller_tl = total_tl_vol * (seller_pct / 100)
+
+    if buyer_pct > 55:
+        pressure_status = "🟢 GÜÇLÜ ALICI BASKISI (Para Girişi Var)"
+    elif buyer_pct > 50:
+        pressure_status = "🟢 HAFİF ALICILI (Dengeli / Pozitif)"
+    elif seller_pct > 55:
+        pressure_status = "🔴 GÜÇLÜ SATICI BASKISI (Para Çıkışı Var)"
+    else:
+        pressure_status = "🟡 HAFİF SATICILI (Dengeli / Negatif)"
+
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    val_rsi = float(rsi.iloc[-1])
+    
+    if 40 <= val_rsi <= 70:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f})", 9
+    elif val_rsi < 30:
+        rsi_sig, rsi_score = f"[ + ] (RSI: {val_rsi:.1f} Dip)", 8
+    else:
+        rsi_sig, rsi_score = f"[ - ] (RSI: {val_rsi:.1f})", 4
+
+    hl2 = (df['High'] + df['Low']) / 2
+    st_trend = last_price > float(hl2.iloc[-1])
+    st_sig, st_score = ("[ + ] (Yükseliş Trendi)", 10) if st_trend else ("[ - ] (Düşüş Trendi)", 2)
+
+    low_14 = df['Low'].rolling(14).min()
+    high_14 = df['High'].rolling(14).max()
+    stoch_k = 100 * ((df['Close'] - low_14) / (high_14 - low_14))
+    stoch_d = stoch_k.rolling(3).mean()
+    val_stoch_k, val_stoch_d = float(stoch_k.iloc[-1]), float(stoch_d.iloc[-1])
+    stoch_cross_up = val_stoch_k > val_stoch_d and float(stoch_k.iloc[-2]) <= float(stoch_d.iloc[-2])
+    
+    if val_stoch_k > val_stoch_d:
+        stoch_sig, stoch_score = f"[ + ] (%K > %D)", 9
+    else:
+        stoch_sig, stoch_score = f"[ - ] (%K < %D)", 3
+
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    macd_line = exp1 - exp2
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    val_macd, val_sig = float(macd_line.iloc[-1]), float(signal_line.iloc[-1])
+    
+    if val_macd > val_sig:
+        macd_sig, macd_score = f"[ + ] (MACD Pozitif)", 9
+    else:
+        macd_sig, macd_score = f"[ - ] (MACD Negatif)", 2
+
+    vol_current = float(df['Volume'].iloc[-1])
+    vol_ma = float(df['Volume'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else float(df['Volume'].mean())
+    vol_high = vol_current > vol_ma
+    
+    if vol_high:
+        vol_sig, vol_score = f"[ + ] (Hacim Yüksek)", 9
+    else:
+        vol_sig, vol_score = f"[ - ] (Hacim Düşük)", 4
+
+    obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
+    obv_ma = obv.rolling(10).mean() if len(df) >= 10 else obv.mean()
+    val_obv = float(obv.iloc[-1])
+    val_obv_ma = float(obv_ma.iloc[-1]) if isinstance(obv_ma, pd.Series) else float(obv_ma)
+    
+    if val_obv > val_obv_ma:
+        obv_sig, obv_score = "[ + ] (OBV > Ort)", 8
+    else:
+        obv_sig, obv_score = "[ - ] (OBV < Ort)", 4
+
+    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+    ema50 = df['Close'].ewm(span=50, adjust=False).mean()
+    val_ema20, val_ema50 = float(ema20.iloc[-1]), float(ema50.iloc[-1])
+    
+    if val_ema20 > val_ema50:
+        ema_sig, ema_score = f"[ + ] (EMA20 > EMA50)", 10
+    else:
+        ema_sig, ema_score = f"[ - ] (EMA20 < EMA50)", 3
+
+    ema_t1 = df['Close'].ewm(span=9).mean()
+    ema_t2 = ema_t1.ewm(span=9).mean()
+    ema_t3 = ema_t2.ewm(span=9).mean()
+    tema = 3 * (ema_t1 - ema_t2) + ema_t3
+    val_tema = float(tema.iloc[-1])
+    
+    if last_price > val_tema:
+        tema_sig, tema_score = f"[ + ] (Fiyat > TEMA)", 9
+    else:
+        tema_sig, tema_score = f"[ - ] (Fiyat < TEMA)", 4
+
+    bb_mid = df['Close'].rolling(20).mean() if len(df) >= 20 else df['Close'].mean()
+    val_bb = float(bb_mid.iloc[-1]) if isinstance(bb_mid, pd.Series) else float(bb_mid)
+    
+    if last_price > val_bb:
+        bb_sig, bb_score = f"[ + ] (Fiyat > BB Ort)", 8
+    else:
+        bb_sig, bb_score = f"[ - ] (Fiyat < BB Ort)", 4
+
+    high_low = df['High'] - df['Low']
+    high_close = np.abs(df['High'] - df['Close'].shift())
+    low_close = np.abs(df['Low'] - df['Close'].shift())
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean()
+    val_atr = float(atr.iloc[-1])
+    atr_ma = atr.rolling(30).mean().iloc[-1] if len(df) >= 30 else atr.mean()
+    
+    if val_atr > float(atr_ma):
+        atr_sig, atr_score = f"[ + ] (ATR Volatiliteli)", 7
+    else:
+        atr_sig, atr_score = f"[ - ] (ATR Durgun)", 5
+
+    signals = [rsi_sig, st_sig, macd_sig, ema_sig, stoch_sig, vol_sig, obv_sig, tema_sig, bb_sig, atr_sig]
+    scores = [rsi_score, st_score, stoch_score, macd_score, vol_score, obv_score, ema_score, tema_score, bb_score, atr_score]
+    total_positive = sum(1 for s in signals if "[ + ]" in s)
+    tech_score_sum = sum(scores)
+
+    return {
+        "last_price": last_price,
+        "pivots": pivots,
+        "total_positive": total_positive,
+        "tech_score_sum": tech_score_sum,
+        "gap_status": gap_status,
+        "pressure_status": pressure_status,
+        "buyer_pct": buyer_pct,
+        "seller_pct": seller_pct,
+        "buying_vol": buying_vol,
+        "selling_vol": selling_vol,
+        "buyer_tl": buyer_tl,
+        "seller_tl": seller_tl,
+        "val_rsi": val_rsi,
+        "stoch_cross_up": stoch_cross_up,
+        "signals": {
+            "RSI": (rsi_sig, rsi_score), 
+            "SuperTrend": (st_sig, st_score),
+            "Stochastic": (stoch_sig, stoch_score), 
+            "MACD": (macd_sig, macd_score),
+            "Hacim": (vol_sig, vol_score), 
+            "OBV": (obv_sig, obv_score),
+            "EMA20/50": (ema_sig, ema_score), 
+            "TEMA": (tema_sig, tema_score),
+            "Bollinger": (bb_sig, bb_score), 
+            "ATR": (atr_sig, atr_score)
+        },
+        "recent_df": recent_df, 
+        "ema20": ema20, 
+        "ema50": ema50, 
+        "tema": tema,
+        "macd_line": macd_line, 
+        "signal_line": signal_line,
+        "stoch_k": stoch_k, 
+        "stoch_d": stoch_d
+    }
+
+def get_status_label(score):
+    if score >= 9: return "🟢 **[Çok İyi]**"
+    elif score >= 7: return "🟢 **[Uygun]**"
+    elif score >= 5: return "🟡 **[Nötr]**"
+    else: return "🔴 **[Zayıf / Riskli]**"
+
+def render_stock_analysis(ticker_code, key_prefix="tab1", manual_price_input=""):
+    clean_ticker = ticker_code.strip().upper()
+    if not clean_ticker.endswith(".IS"):
+        clean_ticker += ".IS"
+
+    st.markdown("---")
+    
+    c_per, c_time, c_sym = st.columns([1.4, 0.9, 1.2])
+    with c_per:
+        selected_period_str = st.selectbox(
+            "⏱️ Periyot", 
+            period_options, 
+            index=12,
+            key=f"per_{key_prefix}_{clean_ticker}",
+            label_visibility="collapsed"
+        )
+    with c_time:
+        current_time = datetime.now().strftime("%H:%M")
+        st.markdown(f"🕒 `{current_time}`")
+    with c_sym:
+        st.markdown(f"**Hisse:** `{clean_ticker}`")
+
+    interval, period = interval_map.get(selected_period_str, ("1d", "2y"))
+
+    try:
+        with st.spinner(f"{clean_ticker} verileri hesaplanıyor..."):
+            df = yf.download(clean_ticker, period=period, interval=interval, progress=False)
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df = df.dropna(subset=['Close', 'High', 'Low', 'Volume', 'Open'])
+            
+            parsed_manual_price = 0.0
+            try:
+                if manual_price_input.strip() != "":
+                    parsed_manual_price = float(manual_price_input.replace(",", "."))
+            except Exception: pass
+
+            res = analyze_df(df, manual_price=parsed_manual_price)
+            if not res:
+                st.error("Yeterli teknik veri bulunamadı.")
+            else:
+                last_price = res["last_price"]
+                p = res["pivots"]
+
+                stop_loss = last_price * (1 - 0.015)
+                take_profit = last_price * (1 + 0.05)
+                tech_score = res["tech_score_sum"]
+
+                action_signal = "NÖTR"
+                if res["val_rsi"] < 35 and res["stoch_cross_up"]:
+                    action_signal = "🚀 DİPTEN AL (Dip Dönüş Sinyali)"
+                elif tech_score >= 75 and res["buyer_pct"] > 52:
+                    action_signal = "🟢 NET AL (Güçlü Yükseliş Trendi)"
+                elif tech_score <= 40:
+                    action_signal = "🔴 NET SAT / UZAK DUR (Zayıf Trend)"
+                elif tech_score >= 55:
+                    action_signal = "🟡 BEKLE / İZLE (Nötr-Pozitif)"
+                else:
+                    action_signal = "🟠 RİSKLİ / TEMKİNLİ OL"
+
+                st.markdown(f"💰 **Anlık Fiyat:** `{last_price:.2f} TL` &nbsp;|&nbsp; 🎯 **TP (%5):** `{take_profit:.2f}` &nbsp;|&nbsp; 🛑 **Stop-Loss (%1.5):** `{stop_loss:.2f}`")
+                
+                st.subheader("🛡️ Otomatik Destek & Direnç Seviyeleri (Pivot)")
+                col_s1, col_s2, col_s3 = st.columns(3)
+                with col_s1:
+                    st.error(f"🔴 **R3 (Güçlü Satış):** {p['r3']:.2f} TL\n\n🔴 **R2 (Direnç 2):** {p['r2']:.2f} TL\n\n🔴 **R1 (Direnç 1):** {p['r1']:.2f} TL")
+                with col_s2:
+                    st.info(f"⚪ **Pivot (Nötr Nokta):** {p['pivot']:.2f} TL\n\n🎯 **Özel Sinyal:** `{action_signal}`")
+                with col_s3:
+                    st.success(f"🟢 **S1 (Destek 1):** {p['s1']:.2f} TL\n\n🟢 **S2 (Destek 2):** {p['s2']:.2f} TL\n\n🟢 **S3 (Güçlü Alım):** {p['s3']:.2f} TL")
+
+                st.markdown("---")
