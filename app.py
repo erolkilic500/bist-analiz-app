@@ -168,3 +168,66 @@ period_options = [
 ]
 
 interval_map = {
+    "1 Dakika": ("1m", "7d"), "2 Dakika": ("2m", "1mo"), "3 Dakika": ("2m", "1mo"),
+    "5 Dakika": ("5m", "1mo"), "10 Dakika": ("5m", "1mo"), "15 Dakika": ("15m", "1mo"),
+    "30 Dakika": ("30m", "3mo"), "45 Dakika": ("15m", "3mo"), "1 Saat": ("1h", "6mo"),
+    "2 Saat": ("1h", "1y"), "3 Saat": ("1h", "1y"), "4 Saat": ("1h", "2y"),
+    "1 Günlük": ("1d", "2y"), "1 Haftalık": ("1wk", "5y"), "1 Aylık": ("1mo", "10y"),
+    "3 Aylık": ("3mo", "max"), "6 Aylık": ("3mo", "max"), "1 Yıllık": ("3mo", "max")
+}
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Tek Hisse Detaylı Analiz", 
+    "İzleme Listem (3 Odak Hisse)", 
+    "Portföyüm", 
+    "BIST Otomatik Tarayıcı"
+])
+
+def calculate_pivot_levels(df, override_price=None):
+    if override_price and override_price > 0:
+        close = override_price
+        high = override_price * 1.015
+        low = override_price * 0.985
+    else:
+        high = float(df['High'].iloc[-1])
+        low = float(df['Low'].iloc[-1])
+        close = float(df['Close'].iloc[-1])
+    
+    pivot = (high + low + close) / 3
+    r1 = (2 * pivot) - low
+    s1 = (2 * pivot) - high
+    r2 = pivot + (high - low)
+    s2 = pivot - (high - low)
+    r3 = high + 2 * (pivot - low)
+    s3 = low - 2 * (high - pivot)
+    
+    return {
+        "pivot": pivot, "r1": r1, "r2": r2, "r3": r3,
+        "s1": s1, "s2": s2, "s3": s3
+    }
+
+def analyze_df(df, manual_price=0.0):
+    if df.empty or len(df) < 10:
+        return None
+        
+    last_price = float(df['Close'].iloc[-1])
+    if manual_price > 0:
+        last_price = manual_price
+
+    pivots = calculate_pivot_levels(df, override_price=manual_price)
+
+    total_vol = float(df['Volume'].sum())
+    total_tl_vol = float((df['Close'] * df['Volume']).sum())
+    
+    price_diff = df['Close'].diff().fillna(0)
+    buying_vol = float(df['Volume'][price_diff >= 0].sum())
+    selling_vol = float(df['Volume'][price_diff < 0].sum())
+    
+    buyer_pct = (buying_vol / total_vol) * 100 if total_vol > 0 else 50.0
+    seller_pct = (selling_vol / total_vol) * 100 if total_vol > 0 else 50.0
+
+    buyer_tl = total_tl_vol * (buyer_pct / 100)
+    seller_tl = total_tl_vol * (seller_pct / 100)
+
+    if buyer_pct > 55:
+        pressure_status = "
