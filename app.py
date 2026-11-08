@@ -139,7 +139,6 @@ def calculate_pivot_levels(df):
     high = float(df['High'].iloc[-2])
     low = float(df['Low'].iloc[-2])
     close = float(df['Close'].iloc[-2])
-    
     pivot = (high + low + close) / 3
     r1 = (2 * pivot) - low
     s1 = (2 * pivot) - high
@@ -147,12 +146,15 @@ def calculate_pivot_levels(df):
     s2 = pivot - (high - low)
     r3 = high + 2 * (pivot - low)
     s3 = low - 2 * (high - pivot)
-    
-    return {
-        "pivot": pivot, "r1": r1, "r2": r2, "r3": r3,
-        "s1": s1, "s2": s2, "s3": s3
-    }
+    return {"pivot": pivot, "r1": r1, "r2": r2, "r3": r3, "s1": s1, "s2": s2, "s3": s3}
 
 def analyze_df(df):
     if df.empty or len(df) < 10:
         return None
+    recent_df = df.tail(20)
+    last_price = float(df['Close'].iloc[-1])
+    pivots = calculate_pivot_levels(df)
+
+    prev_high = float(df['High'].iloc[-2])
+    prev_low = float(df['Low'].iloc[-2])
+    curr_open =
