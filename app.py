@@ -10,9 +10,6 @@ import os
 
 st.set_page_config(page_title="BIST Pro Terminal & Portfoy Paneli", layout="wide")
 
-# ==============================================================================
-# 💾 KALICI VERİ VE KLASÖR SAKLAMA MEKANİZMASI
-# ==============================================================================
 DATA_FILE = "user_data.json"
 UPLOAD_DIR = "uploaded_images"
 
@@ -57,9 +54,6 @@ def save_user_data():
     except Exception as e:
         st.error(f"Veriler kaydedilirken hata oluştu: {e}")
 
-# ==============================================================================
-# 🔒 KULLANICI GİRİŞİ
-# ==============================================================================
 USERS = {
     "bist500erol": "2152039",
     "arkadas1": "bist123",
@@ -92,10 +86,6 @@ if not st.session_state["authenticated"]:
             else:
                 st.error("❌ Hatalı kullanıcı adı veya şifre!")
     st.stop()
-
-# ==============================================================================
-# 🚀 UYGULAMA ANA KODLARI
-# ==============================================================================
 
 saved_watchlist, saved_portfolio, saved_images, saved_alerts = load_user_data()
 
@@ -225,4 +215,40 @@ def calculate_pivot_levels(df):
     s3 = low - 2 * (high - pivot)
     
     return {
-        "pivot": pivot, "r1": r1, "r2
+        "pivot": pivot, "r1": r1, "r2": r2, "r3": r3,
+        "s1": s1, "s2": s2, "s3": s3
+    }
+
+def analyze_df(df):
+    if df.empty or len(df) < 10:
+        return None
+        
+    recent_df = df.tail(20)
+    last_price = float(df['Close'].iloc[-1])
+    
+    pivots = calculate_pivot_levels(df)
+
+    prev_high = float(df['High'].iloc[-2])
+    prev_low = float(df['Low'].iloc[-2])
+    curr_open = float(df['Open'].iloc[-1])
+    
+    gap_status = "Normal Açılış"
+    if curr_open > prev_high:
+        gap_status = "🟢 Yukarı GAP (Boşluklu Pozitif)"
+    elif curr_open < prev_low:
+        gap_status = "🔴 Aşağı GAP (Boşluklu Negatif)"
+
+    total_vol = float(df['Volume'].sum())
+    total_tl_vol = float((df['Close'] * df['Volume']).sum())
+    
+    price_diff = df['Close'].diff().fillna(0)
+    buying_vol = float(df['Volume'][price_diff >= 0].sum())
+    selling_vol = float(df['Volume'][price_diff < 0].sum())
+    
+    buyer_pct = (buying_vol / total_vol) * 100 if total_vol > 0 else 50.0
+    seller_pct = (selling_vol / total_vol) * 100 if total_vol > 0 else 50.0
+
+    buyer_tl = total_tl_vol * (buyer_pct / 100)
+    seller_tl = total_tl_vol * (seller_pct / 100)
+
+    if buyer_pct > 55
